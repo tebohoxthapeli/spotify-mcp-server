@@ -3,6 +3,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { parseServerEnv } from "./env.js";
 import { registerReadTools } from "./tools/playback-read.js";
 import { registerWriteTools } from "./tools/playback-write.js";
+import { registerPlaylistReadTools } from "./tools/playlist-read.js";
+import { registerPlaylistWriteTools } from "./tools/playlist-write.js";
 
 const env = parseServerEnv();
 
@@ -13,6 +15,8 @@ const server = new McpServer({
 
 registerReadTools(server, env);
 registerWriteTools(server, env);
+registerPlaylistReadTools(server, env);
+registerPlaylistWriteTools(server, env);
 
 async function main(): Promise<void> {
   const transport = new StdioServerTransport();
