@@ -1,0 +1,21 @@
+{
+  "name": "spotify-mcp-server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "bun run tsc",
+    "start": "bun run dist/index.js",
+    "dev": "bun --watch src/index.ts",
+    "auth": "bun run src/auth.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  }
+}
