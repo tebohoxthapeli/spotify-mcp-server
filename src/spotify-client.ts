@@ -1,6 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ServerEnv } from "./env.js";
-import type { SpotifyTokenResponse } from "./types.js";
 
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -8,6 +7,7 @@ const TOKEN_BUFFER_MS = 60_000;
 const FETCH_TIMEOUT_MS = 10_000;
 const CACHE_TTL_MS = 2_000;
 const MAX_RETRY_WAIT_MS = 10_000;
+const MAX_CACHE_SIZE = 100;
 
 interface TokenCache {
   readonly accessToken: string;
@@ -56,11 +56,11 @@ async function doRefresh(env: ServerEnv): Promise<string> {
   if (!response.ok) {
     const body = await response.text();
     if (response.status === 400 && body.includes("invalid_grant")) {
-      throw new Error(
-        "Spotify auth expired. Re-run the auth script (`bun run auth`).",
-      );
+      throw new Error("Spotify auth expired. Re-run the auth script.");
     }
-    console.error("Token refresh failed:", body);
+    console.error(
+      `Token refresh failed (${response.status} ${response.statusText})`,
+    );
     throw new Error(
       `Token refresh failed (${response.status} ${response.statusText})`,
     );
@@ -109,8 +109,11 @@ export async function spotifyRequest<T>(
   // Check cache for GET requests
   if (method === "GET") {
     const cached = responseCache.get(cacheKey);
-    if (cached && Date.now() < cached.expiresAt) {
-      return cached.data as T;
+    if (cached) {
+      if (Date.now() < cached.expiresAt) {
+        return cached.data as T;
+      }
+      responseCache.delete(cacheKey);
     }
   }
 
@@ -157,7 +160,24 @@ export async function spotifyRequest<T>(
     throw new Error(msg);
   }
 
-  const json = (await response.json()) as Record<string, unknown>;
+  const text = (await response.text()).trim();
+  if (!text) {
+    return null;
+  }
+
+  let json: Record<string, unknown>;
+  try {
+    json = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    // Mutating endpoints (PUT/POST/DELETE) may return non-JSON success
+    // bodies (e.g. Spotify sometimes sends whitespace or plain text on 200
+    // instead of the documented 204). Safe to ignore for writes.
+    if (method !== "GET") {
+      return null;
+    }
+    console.error(`Failed to parse JSON from ${endpoint}:`, text.slice(0, 200));
+    throw new Error(`Invalid JSON response from Spotify (${endpoint})`);
+  }
 
   if (json.error) {
     const errorMsg =
@@ -170,6 +190,12 @@ export async function spotifyRequest<T>(
 
   // Cache GET responses
   if (method === "GET") {
+    if (responseCache.size >= MAX_CACHE_SIZE) {
+      const oldest = responseCache.keys().next().value;
+      if (oldest !== undefined) {
+        responseCache.delete(oldest);
+      }
+    }
     responseCache.set(cacheKey, {
       data: json,
       expiresAt: Date.now() + CACHE_TTL_MS,
@@ -179,12 +205,26 @@ export async function spotifyRequest<T>(
   return json as T;
 }
 
+function extractErrorMessage(body: string): string | null {
+  try {
+    const json = JSON.parse(body) as Record<string, unknown>;
+    if (typeof json.error === "object" && json.error !== null) {
+      const msg = (json.error as Record<string, unknown>).message;
+      if (typeof msg === "string") return msg;
+    }
+  } catch {
+    // body isn't JSON
+  }
+  return null;
+}
+
 function mapSpotifyError(status: number, body: string): string {
-  console.error(`Spotify API error ${status}:`, body);
+  console.error(`Spotify API error (${status})`);
+  const detail = extractErrorMessage(body);
 
   switch (status) {
     case 401:
-      return "Spotify auth expired. Re-run the auth script (`bun run auth`).";
+      return "Spotify auth expired. Re-run the auth script.";
     case 403:
       if (body.includes("PREMIUM_REQUIRED")) {
         return "This feature requires Spotify Premium.";
@@ -192,16 +232,16 @@ function mapSpotifyError(status: number, body: string): string {
       if (body.includes("volume")) {
         return "Volume control is not available on this device.";
       }
-      return "Spotify rejected the request (403).";
+      return detail ?? "Spotify rejected the request (403).";
     case 404:
       if (body.includes("NO_ACTIVE_DEVICE") || body.includes("not found")) {
         return "No active Spotify device found. Open Spotify on a device first.";
       }
-      return "Spotify resource not found.";
+      return detail ?? "Spotify resource not found.";
     case 429:
       return "Rate limited by Spotify. Try again in a few seconds.";
     default:
-      return `Spotify API error (${status}).`;
+      return detail ?? `Spotify API error (${status}).`;
   }
 }
 

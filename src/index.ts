@@ -25,6 +25,9 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error("Fatal:", error);
+  console.error(
+    "Fatal:",
+    error instanceof Error ? error.message : String(error),
+  );
   process.exit(1);
 });

@@ -19,9 +19,9 @@ authUrl.searchParams.set("redirect_uri", env.SPOTIFY_REDIRECT_URI);
 authUrl.searchParams.set("scope", SCOPES);
 authUrl.searchParams.set("state", oauthState);
 
-console.log("\nOpen this URL in your browser:\n");
-console.log(authUrl.toString());
-console.log("\nWaiting for callback...\n");
+console.error("\nOpen this URL in your browser:\n");
+console.error(authUrl.toString());
+console.error("\nWaiting for callback...\n");
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
@@ -39,21 +39,21 @@ const server = createServer(async (req, res) => {
   if (returnedState !== oauthState) {
     res.writeHead(400);
     res.end("Invalid OAuth state — possible CSRF attack.");
-    server.close();
+    server.close(() => process.exit(1));
     return;
   }
 
   if (error) {
     res.writeHead(400);
     res.end(`Auth error: ${error}`);
-    server.close();
+    server.close(() => process.exit(1));
     return;
   }
 
   if (!code) {
     res.writeHead(400);
     res.end("No code received");
-    server.close();
+    server.close(() => process.exit(1));
     return;
   }
 
@@ -86,8 +86,8 @@ const server = createServer(async (req, res) => {
       throw new Error("Token exchange failed: no refresh token received");
     }
 
-    console.log("Got tokens!");
-    console.log(`  Access token expires in: ${tokens.expires_in}s`);
+    console.error("Got tokens!");
+    console.error(`  Access token expires in: ${tokens.expires_in}s`);
 
     const envPath = join(process.cwd(), ".env");
     let envContent = "";
@@ -106,8 +106,10 @@ const server = createServer(async (req, res) => {
       envContent += `\nSPOTIFY_REFRESH_TOKEN=${tokens.refresh_token}\n`;
     }
 
-    writeFileSync(envPath, envContent);
-    console.log("Refresh token saved to .env");
+    writeFileSync(envPath, envContent, {
+      mode: 0o600,
+    });
+    console.error("Refresh token saved to .env");
 
     res.writeHead(200, {
       "Content-Type": "text/html",
@@ -117,13 +119,15 @@ const server = createServer(async (req, res) => {
     console.error("Token exchange failed:", err);
     res.writeHead(500);
     res.end("Token exchange failed");
+    server.close(() => process.exit(1));
+    return;
   }
 
-  server.close();
+  server.close(() => process.exit(0));
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`Listening on http://127.0.0.1:${port}`);
+  console.error(`Listening on http://127.0.0.1:${port}`);
 });
 
 setTimeout(() => {
