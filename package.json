@@ -1,18 +1,4 @@
 {
-  "name": "spotify-mcp-server",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "dist/index.js",
-  "scripts": {
-    "build": "bun run tsc",
-    "start": "bun run dist/index.js",
-    "dev": "bun --watch src/index.ts",
-    "auth": "bun run src/auth.ts",
-    "test": "bun test",
-    "format": "biome format --write .",
-    "lint": "biome lint .",
-    "check": "biome check --write ."
-  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.0",
     "zod": "^3.25.0"
@@ -21,5 +7,23 @@
     "@biomejs/biome": "^2.4.7",
     "@types/node": "^22.0.0",
     "typescript": "^5.9.0"
-  }
+  },
+  "main": "dist/index.js",
+  "name": "spotify-mcp-server",
+  "scripts": {
+    "auth": "bun run src/auth.ts",
+    "biome-check": "bunx --bun @biomejs/biome check",
+    "biome-fix": "bunx --bun @biomejs/biome check --write",
+    "build": "bun run tsc",
+    "dev": "bun --watch src/index.ts",
+    "start": "bun run dist/index.js",
+    "super-check": "bun run super-check-fast && bun run build",
+    "super-check-fast": "bun run biome-check && bun run type-check",
+    "super-fix": "bun run biome-fix && bun run super-check",
+    "super-fix-fast": "bun run biome-fix && bun run super-check-fast",
+    "test": "bun test",
+    "type-check": "tsc --noEmit -p tsconfig.json"
+  },
+  "type": "module",
+  "version": "1.0.0"
 }
