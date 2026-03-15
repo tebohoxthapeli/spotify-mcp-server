@@ -10,3 +10,11 @@ export function textResult(text: string): CallToolResult {
     ],
   };
 }
+
+export function extractIdFromUri(uri: string): string {
+  const id = uri.split(":")[2];
+  if (!id) {
+    throw new Error(`Cannot extract ID from URI: ${uri}`);
+  }
+  return id;
+}
