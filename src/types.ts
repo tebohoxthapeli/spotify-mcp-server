@@ -1,105 +1,105 @@
-export type SpotifyArtist = {
-  readonly id: string;
-  readonly name: string;
-  readonly uri: string;
-};
+export type SpotifyArtist = Readonly<{
+  id: string;
+  name: string;
+  uri: string;
+}>;
 
-export type SpotifyAlbum = {
-  readonly id: string;
-  readonly name: string;
-  readonly uri: string;
-};
+export type SpotifyAlbum = Readonly<{
+  id: string;
+  name: string;
+  uri: string;
+}>;
 
-export type SpotifyTrack = {
-  readonly album: SpotifyAlbum;
-  readonly artists: readonly SpotifyArtist[];
-  readonly duration_ms: number;
-  readonly external_urls: {
-    readonly spotify: string;
-  };
-  readonly id: string;
-  readonly name: string;
-  readonly uri: string;
-};
+export type SpotifyTrack = Readonly<{
+  album: SpotifyAlbum;
+  artists: readonly SpotifyArtist[];
+  duration_ms: number;
+  external_urls: Readonly<{
+    spotify: string;
+  }>;
+  id: string;
+  name: string;
+  uri: string;
+}>;
 
-export type SpotifyDevice = {
-  readonly id: string | null;
-  readonly is_active: boolean;
-  readonly name: string;
-  readonly type: string;
-  readonly volume_percent: number | null;
-};
+export type SpotifyDevice = Readonly<{
+  id: string | null;
+  is_active: boolean;
+  name: string;
+  type: string;
+  volume_percent: number | null;
+}>;
 
-export type SpotifyCurrentlyPlaying = {
-  readonly currently_playing_type: string;
-  readonly is_playing: boolean;
-  readonly item: SpotifyTrack | null;
-  readonly progress_ms: number | null;
-};
+export type SpotifyCurrentlyPlaying = Readonly<{
+  currently_playing_type: string;
+  is_playing: boolean;
+  item: SpotifyTrack | null;
+  progress_ms: number | null;
+}>;
 
-export type SpotifyPlayerState = {
-  readonly device: SpotifyDevice;
-  readonly is_playing: boolean;
-  readonly item: SpotifyTrack | null;
-  readonly progress_ms: number | null;
-  readonly repeat_state: "off" | "track" | "context";
-  readonly shuffle_state: boolean;
-};
+export type SpotifyPlayerState = Readonly<{
+  device: SpotifyDevice;
+  is_playing: boolean;
+  item: SpotifyTrack | null;
+  progress_ms: number | null;
+  repeat_state: "off" | "track" | "context";
+  shuffle_state: boolean;
+}>;
 
-export type SpotifyTokenResponse = {
-  readonly access_token: string;
-  readonly expires_in: number;
-  readonly refresh_token?: string;
-  readonly scope: string;
-  readonly token_type: string;
-};
+export type SpotifyTokenResponse = Readonly<{
+  access_token: string;
+  expires_in: number;
+  refresh_token?: string;
+  scope: string;
+  token_type: string;
+}>;
 
-export type SpotifyPlaylistOwner = {
-  readonly display_name: string | null;
-  readonly id: string;
-};
+export type SpotifyPlaylistOwner = Readonly<{
+  display_name: string | null;
+  id: string;
+}>;
 
-export type SpotifyImage = {
-  readonly height: number | null;
-  readonly url: string;
-  readonly width: number | null;
-};
+export type SpotifyImage = Readonly<{
+  height: number | null;
+  url: string;
+  width: number | null;
+}>;
 
-export type SpotifyPlaylist = {
-  readonly collaborative: boolean;
-  readonly description: string | null;
-  readonly external_urls: {
-    readonly spotify: string;
-  };
-  readonly id: string;
-  readonly images: readonly SpotifyImage[];
-  readonly name: string;
-  readonly owner: SpotifyPlaylistOwner;
-  readonly public: boolean | null;
-  readonly snapshot_id: string;
-  readonly tracks: {
-    readonly total: number;
-  } | null;
-  readonly uri: string;
-};
+export type SpotifyPlaylist = Readonly<{
+  collaborative: boolean;
+  description: string | null;
+  external_urls: Readonly<{
+    spotify: string;
+  }>;
+  id: string;
+  images: readonly SpotifyImage[];
+  name: string;
+  owner: SpotifyPlaylistOwner;
+  public: boolean | null;
+  snapshot_id: string;
+  tracks: Readonly<{
+    total: number;
+  }> | null;
+  uri: string;
+}>;
 
-export type SpotifyPlaylistPage = {
-  readonly items: readonly SpotifyPlaylist[];
-  readonly limit: number;
-  readonly next: string | null;
-  readonly offset: number;
-  readonly total: number;
-};
+export type SpotifyPlaylistPage = Readonly<{
+  items: readonly SpotifyPlaylist[];
+  limit: number;
+  next: string | null;
+  offset: number;
+  total: number;
+}>;
 
-export type SpotifyPlaylistTrackItem = {
-  readonly added_at: string;
-  readonly item: SpotifyTrack | null;
-};
+export type SpotifyPlaylistTrackItem = Readonly<{
+  added_at: string;
+  item: SpotifyTrack | null;
+}>;
 
-export type SpotifyPlaylistTracksPage = {
-  readonly items: readonly SpotifyPlaylistTrackItem[];
-  readonly limit: number;
-  readonly next: string | null;
-  readonly offset: number;
-  readonly total: number;
-};
+export type SpotifyPlaylistTracksPage = Readonly<{
+  items: readonly SpotifyPlaylistTrackItem[];
+  limit: number;
+  next: string | null;
+  offset: number;
+  total: number;
+}>;

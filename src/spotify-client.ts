@@ -9,15 +9,15 @@ const CACHE_TTL_MS = 2_000;
 const MAX_RETRY_WAIT_MS = 10_000;
 const MAX_CACHE_SIZE = 100;
 
-type TokenCache = {
-  readonly accessToken: string;
-  readonly expiresAt: number;
-};
+type TokenCache = Readonly<{
+  accessToken: string;
+  expiresAt: number;
+}>;
 
-type ResponseCache = {
-  readonly data: unknown;
-  readonly expiresAt: number;
-};
+type ResponseCache = Readonly<{
+  data: unknown;
+  expiresAt: number;
+}>;
 
 let tokenCache: TokenCache | null = null;
 let refreshPromise: Promise<string> | null = null;
