@@ -44,7 +44,8 @@ export function registerPlaylistReadTools(
       const header = `Playlists (showing ${offset + 1}-${end} of ${data.total}):`;
       const lines = data.items.map((p, i) => {
         const num = offset + i + 1;
-        return `${num}. ${p.name} (${p.tracks.total} tracks) — ${p.uri}`;
+        const trackCount = p.tracks?.total ?? "?";
+        return `${num}. ${p.name} (${trackCount} tracks) — ${p.uri}`;
       });
 
       return textResult(
@@ -80,24 +81,24 @@ export function registerPlaylistReadTools(
       }
 
       const tracks = data.items
-        .map((item, i) => ({
-          item,
+        .map((entry, i) => ({
+          entry,
           originalIndex: i,
         }))
         .filter(
           (
-            entry,
-          ): entry is {
-            item: SpotifyPlaylistTrackItem & {
-              track: SpotifyTrack;
+            row,
+          ): row is {
+            entry: SpotifyPlaylistTrackItem & {
+              item: SpotifyTrack;
             };
             originalIndex: number;
-          } => entry.item.track !== null,
+          } => row.entry.item != null && Array.isArray(row.entry.item.artists),
         );
       const end = Math.min(offset + tracks.length, data.total);
       const header = `Tracks (showing ${offset + 1}-${end} of ${data.total}):`;
-      const lines = tracks.map(({ item, originalIndex }) => {
-        const t = item.track;
+      const lines = tracks.map(({ entry, originalIndex }) => {
+        const t = entry.item;
         const artists = t.artists.map((a) => a.name).join(", ");
         const mins = Math.floor(t.duration_ms / 60_000);
         const secs = Math.floor((t.duration_ms % 60_000) / 1000)

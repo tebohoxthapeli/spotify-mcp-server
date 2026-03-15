@@ -79,7 +79,7 @@ export interface SpotifyPlaylist {
   readonly snapshot_id: string;
   readonly tracks: {
     readonly total: number;
-  };
+  } | null;
   readonly uri: string;
 }
 
@@ -93,7 +93,7 @@ export interface SpotifyPlaylistPage {
 
 export interface SpotifyPlaylistTrackItem {
   readonly added_at: string;
-  readonly track: SpotifyTrack | null;
+  readonly item: SpotifyTrack | null;
 }
 
 export interface SpotifyPlaylistTracksPage {
