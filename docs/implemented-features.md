@@ -1,0 +1,26 @@
+## Implemented Features (still need thorough testing)
+
+- Get currently playing track info
+- Get playback state (playing, paused, stopped)
+- Get current playback position in seconds
+- Get volume level (0–100)
+- Get shuffle state
+- Get repeat mode
+- Resume playback
+- Pause playback
+- Toggle play/pause
+- Skip to next track
+- Skip to previous track
+- Play a specific track by URI
+- Seek to a position in seconds
+- Set volume (0–100)
+- Enable/disable shuffle
+- Set repeat mode
+- List the user's playlists
+- Get tracks from a specific playlist
+- Create a new playlist
+- Delete (unfollow) a playlist
+- Add tracks to a playlist
+- Remove tracks from a playlist
+- Update playlist metadata
+- Reorder tracks within a playlist
