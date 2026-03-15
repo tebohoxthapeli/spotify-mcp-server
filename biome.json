@@ -136,6 +136,29 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "**/*.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noBannedTypes": "off"
+          },
+          "performance": {
+            "noDelete": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ],
   "vcs": {
     "clientKind": "git",
     "enabled": true,

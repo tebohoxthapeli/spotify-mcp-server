@@ -5,6 +5,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
+    "@types/bun": "^1.3.10",
     "@types/node": "^22.0.0",
     "typescript": "^5.9.0"
   },
@@ -16,6 +17,7 @@
     "biome-fix": "bunx --bun @biomejs/biome check --write",
     "build": "bun run tsc",
     "dev": "bun --watch src/index.ts",
+    "serve": "bun run build && bun run dist/index.js",
     "start": "bun run dist/index.js",
     "super-check": "bun run super-check-fast && bun run build",
     "super-check-fast": "bun run biome-check && bun run type-check",
