@@ -2,6 +2,7 @@
 dist/
 node_modules/
 docs/
+*.test.ts
 .env
 .env.*.local
 .mcp.json
