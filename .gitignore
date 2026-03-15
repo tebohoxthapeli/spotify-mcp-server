@@ -1,7 +1,7 @@
 .claude/
 dist/
 node_modules/
-
+docs/
 .env
 .env.*.local
 .mcp.json
