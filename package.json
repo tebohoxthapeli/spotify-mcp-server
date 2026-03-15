@@ -8,13 +8,17 @@
     "start": "bun run dist/index.js",
     "dev": "bun --watch src/index.ts",
     "auth": "bun run src/auth.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check --write ."
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.7",
     "@types/node": "^22.0.0",
     "typescript": "^5.9.0"
   }

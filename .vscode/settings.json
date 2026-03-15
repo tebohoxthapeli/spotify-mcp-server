@@ -1,0 +1,23 @@
+{
+  "[javascript]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll.biome": "explicit",
+      "source.fixAll.ts": "explicit",
+      "source.organizeImports": "never"
+    }
+  },
+  "[typescript]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll.biome": "explicit",
+      "source.fixAll.ts": "explicit",
+      "source.organizeImports": "never"
+    }
+  },
+  "biome.configurationPath": "biome.json",
+  "biome.enabled": true,
+  "biome.lsp.bin": "node_modules/@biomejs/biome/bin/biome",
+  "biome.lsp.trace.server": "messages",
+  "biome.requireConfiguration": true,
+  "biome.runFromTemporaryLocation": false,
+  "biome.suggestInstallingGlobally": false
+}
