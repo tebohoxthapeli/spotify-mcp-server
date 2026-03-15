@@ -97,6 +97,10 @@ export async function spotifyRequest<T>(
     url += `?${new URLSearchParams(queryParams).toString()}`;
   }
 
+  const cacheKey = queryParams
+    ? `${endpoint}?${new URLSearchParams(queryParams).toString()}`
+    : endpoint;
+
   // Invalidate cache on mutating requests
   if (method !== "GET") {
     responseCache.clear();
@@ -104,7 +108,7 @@ export async function spotifyRequest<T>(
 
   // Check cache for GET requests
   if (method === "GET") {
-    const cached = responseCache.get(endpoint);
+    const cached = responseCache.get(cacheKey);
     if (cached && Date.now() < cached.expiresAt) {
       return cached.data as T;
     }
@@ -166,7 +170,7 @@ export async function spotifyRequest<T>(
 
   // Cache GET responses
   if (method === "GET") {
-    responseCache.set(endpoint, {
+    responseCache.set(cacheKey, {
       data: json,
       expiresAt: Date.now() + CACHE_TTL_MS,
     });
