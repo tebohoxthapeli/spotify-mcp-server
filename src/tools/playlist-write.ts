@@ -70,9 +70,8 @@ export function registerPlaylistWriteTools(
       readOnlyHint: false,
     },
     withErrorHandling(async ({ uri }) => {
-      await spotifyRequest(env, "/me/library", "DELETE", undefined, {
-        uris: uri,
-      });
+      const id = extractIdFromUri(uri);
+      await spotifyRequest(env, `/playlists/${id}/followers`, "DELETE");
       return textResult(`Playlist removed: ${uri}`);
     }),
   );
@@ -103,7 +102,7 @@ export function registerPlaylistWriteTools(
     withErrorHandling(async ({ playlist_uri, track_uris, snapshot_id }) => {
       const id = extractIdFromUri(playlist_uri);
       const body: Record<string, unknown> = {
-        items: track_uris.map((uri) => ({
+        tracks: track_uris.map((uri) => ({
           uri,
         })),
       };
