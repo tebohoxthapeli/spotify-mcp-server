@@ -3,15 +3,10 @@ import type { ServerEnv } from "../env.js";
 import { recommendationsInput } from "../schemas.js";
 import { spotifyRequest, withErrorHandling } from "../spotify-client.js";
 import type {
-  SpotifyAlbum,
-  SpotifyPaginatedResult,
-  SpotifySimplifiedTrack,
-  SpotifyTrack,
+  SpotifyTopTracksResponse,
+  SpotifyTracksResponse,
 } from "../types.js";
 import { textResult } from "../utils.js";
-
-const MAX_ALBUMS_PER_ARTIST = 5;
-const TRACKS_PER_ALBUM = 20;
 
 type EnrichedTrack = Readonly<{
   albumName: string;
@@ -23,7 +18,7 @@ type EnrichedTrack = Readonly<{
   uri: string;
 }>;
 
-function shuffleArray<T>(array: readonly T[]): T[] {
+export function shuffleArray<T>(array: readonly T[]): T[] {
   const result = [
     ...array,
   ];
@@ -37,43 +32,26 @@ function shuffleArray<T>(array: readonly T[]): T[] {
   return result;
 }
 
-async function getTracksFromArtist(
+async function getTopTracksFromArtist(
   env: ServerEnv,
   artistId: string,
 ): Promise<readonly EnrichedTrack[]> {
-  const albumsPage = await spotifyRequest<SpotifyPaginatedResult<SpotifyAlbum>>(
+  const response = await spotifyRequest<SpotifyTopTracksResponse>(
     env,
-    `/artists/${artistId}/albums`,
-    "GET",
-    undefined,
-    {
-      include_groups: "album,single",
-      limit: String(MAX_ALBUMS_PER_ARTIST),
-    },
+    `/artists/${artistId}/top-tracks`,
   );
 
-  if (!albumsPage?.items.length) return [];
+  if (!response?.tracks.length) return [];
 
-  const albumTrackRequests = albumsPage.items.map(async (album) => {
-    const page = await spotifyRequest<
-      SpotifyPaginatedResult<SpotifySimplifiedTrack>
-    >(env, `/albums/${album.id}/tracks`, "GET", undefined, {
-      limit: String(TRACKS_PER_ALBUM),
-    });
-
-    return (page?.items ?? []).map(
-      (track): EnrichedTrack => ({
-        albumName: album.name,
-        artists: track.artists,
-        id: track.id,
-        name: track.name,
-        uri: track.uri,
-      }),
-    );
-  });
-
-  const results = await Promise.all(albumTrackRequests);
-  return results.flat();
+  return response.tracks.map(
+    (track): EnrichedTrack => ({
+      albumName: track.album.name,
+      artists: track.artists,
+      id: track.id,
+      name: track.name,
+      uri: track.uri,
+    }),
+  );
 }
 
 export function registerRecommendationTools(
@@ -98,20 +76,28 @@ export function registerRecommendationTools(
         );
       }
 
-      // Collect artist IDs from direct seeds and from track lookups
       const artistIds = new Set<string>(seed_artists ?? []);
-      const seedTrackIds = new Set<string>(seed_tracks ?? []);
+      const seedTrackIds = seed_tracks ?? [];
 
-      // Resolve artists from seed tracks
-      const trackLookups = (seed_tracks ?? []).map((id) =>
-        spotifyRequest<SpotifyTrack>(env, `/tracks/${id}`),
-      );
-      const trackResults = await Promise.all(trackLookups);
+      // Batch lookup seed tracks (single request instead of N individual calls)
+      if (seedTrackIds.length > 0) {
+        const trackResults = await spotifyRequest<SpotifyTracksResponse>(
+          env,
+          "/tracks",
+          "GET",
+          undefined,
+          {
+            ids: seedTrackIds.join(","),
+          },
+        );
 
-      for (const track of trackResults) {
-        if (track) {
-          for (const artist of track.artists) {
-            artistIds.add(artist.id);
+        if (trackResults?.tracks) {
+          for (const track of trackResults.tracks) {
+            if (track) {
+              for (const artist of track.artists) {
+                artistIds.add(artist.id);
+              }
+            }
           }
         }
       }
@@ -122,10 +108,10 @@ export function registerRecommendationTools(
         );
       }
 
-      // Fetch tracks from each artist's albums
+      // Fetch top tracks per artist (1 call each vs 6+ with album crawling)
       const artistTrackRequests = [
         ...artistIds,
-      ].map((id) => getTracksFromArtist(env, id));
+      ].map((id) => getTopTracksFromArtist(env, id));
       const artistTrackResults = await Promise.all(artistTrackRequests);
 
       // Merge, deduplicate, exclude seed tracks

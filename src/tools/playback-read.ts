@@ -2,12 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ServerEnv } from "../env.js";
 import { spotifyRequest, withErrorHandling } from "../spotify-client.js";
 import type { SpotifyCurrentlyPlaying, SpotifyPlayerState } from "../types.js";
-import { textResult } from "../utils.js";
-
-const READ_ANNOTATIONS = {
-  destructiveHint: false,
-  readOnlyHint: true,
-} as const;
+import { READ_ANNOTATIONS, textResult } from "../utils.js";
 
 export function registerReadTools(server: McpServer, env: ServerEnv): void {
   server.tool(

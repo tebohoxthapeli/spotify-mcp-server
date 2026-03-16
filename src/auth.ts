@@ -71,6 +71,7 @@ const server = createServer(async (req, res) => {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         method: "POST",
+        signal: AbortSignal.timeout(10_000),
       },
     );
 

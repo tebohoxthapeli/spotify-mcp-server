@@ -143,6 +143,14 @@ export type SpotifyCursorPage<T> = Readonly<{
   total: number;
 }>;
 
+export type SpotifyTopTracksResponse = Readonly<{
+  tracks: readonly SpotifyTrack[];
+}>;
+
+export type SpotifyTracksResponse = Readonly<{
+  tracks: readonly (SpotifyTrack | null)[];
+}>;
+
 export type SpotifySimplifiedTrack = Readonly<{
   artists: readonly SpotifyArtist[];
   duration_ms: number;

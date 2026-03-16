@@ -83,7 +83,75 @@ async function doRefresh(env: ServerEnv): Promise<string> {
   return tokenCache.accessToken;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: will fix in next build phase
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+): Promise<Response> {
+  let response = await fetch(url, {
+    ...options,
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+
+  if (response.status === 429 || response.status >= 500) {
+    const retryAfterHeader = response.headers.get("Retry-After");
+    const waitMs =
+      response.status === 429 && retryAfterHeader
+        ? Math.min(Number(retryAfterHeader) * 1000, MAX_RETRY_WAIT_MS)
+        : 1_000;
+
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    response = await fetch(url, {
+      ...options,
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  }
+
+  return response;
+}
+
+async function parseResponseBody<T>(
+  response: Response,
+  endpoint: string,
+  method: string,
+): Promise<T | null> {
+  if (response.status === 204) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(mapSpotifyError(response.status, errorBody));
+  }
+
+  const text = (await response.text()).trim();
+  if (!text) {
+    return null;
+  }
+
+  let json: Record<string, unknown>;
+  try {
+    json = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    // Mutating endpoints may return non-JSON success bodies
+    if (method !== "GET") {
+      return null;
+    }
+    console.error(`Failed to parse JSON from ${endpoint}:`, text.slice(0, 200));
+    throw new Error(`Invalid JSON response from Spotify (${endpoint})`);
+  }
+
+  if (json.error) {
+    const errorMsg =
+      typeof json.error === "object" && json.error !== null
+        ? (((json.error as Record<string, unknown>).message as string)
+          ?? "Unknown Spotify error")
+        : "Unknown Spotify error";
+    throw new Error(errorMsg);
+  }
+
+  return json as T;
+}
+
 export async function spotifyRequest<T>(
   env: ServerEnv,
   endpoint: string,
@@ -102,12 +170,10 @@ export async function spotifyRequest<T>(
     ? `${endpoint}?${new URLSearchParams(queryParams).toString()}`
     : endpoint;
 
-  // Invalidate cache on mutating requests
   if (method !== "GET") {
     responseCache.clear();
   }
 
-  // Check cache for GET requests
   if (method === "GET") {
     const cached = responseCache.get(cacheKey);
     if (cached) {
@@ -118,79 +184,26 @@ export async function spotifyRequest<T>(
     }
   }
 
-  const doFetch = async (): Promise<Response> =>
-    fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        ...(body
-          ? {
-              "Content-Type": "application/json",
-            }
-          : {}),
-      },
-      method,
-      ...(body
-        ? {
-            body: JSON.stringify(body),
-          }
-        : {}),
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-
-  let response = await doFetch();
-
-  // Retry once on 429 or 5xx
-  if (response.status === 429 || response.status >= 500) {
-    const retryAfterHeader = response.headers.get("Retry-After");
-    const waitMs =
-      response.status === 429 && retryAfterHeader
-        ? Math.min(Number(retryAfterHeader) * 1000, MAX_RETRY_WAIT_MS)
-        : 1_000;
-
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-    response = await doFetch();
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+  };
+  if (body) {
+    headers["Content-Type"] = "application/json";
   }
 
-  if (response.status === 204) {
-    return null;
-  }
+  const response = await fetchWithRetry(url, {
+    headers,
+    method,
+    ...(body
+      ? {
+          body: JSON.stringify(body),
+        }
+      : {}),
+  });
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    const msg = mapSpotifyError(response.status, errorBody);
-    throw new Error(msg);
-  }
+  const data = await parseResponseBody<T>(response, endpoint, method);
 
-  const text = (await response.text()).trim();
-  if (!text) {
-    return null;
-  }
-
-  let json: Record<string, unknown>;
-  try {
-    json = JSON.parse(text) as Record<string, unknown>;
-  } catch {
-    // Mutating endpoints (PUT/POST/DELETE) may return non-JSON success
-    // bodies (e.g. Spotify sometimes sends whitespace or plain text on 200
-    // instead of the documented 204). Safe to ignore for writes.
-    if (method !== "GET") {
-      return null;
-    }
-    console.error(`Failed to parse JSON from ${endpoint}:`, text.slice(0, 200));
-    throw new Error(`Invalid JSON response from Spotify (${endpoint})`);
-  }
-
-  if (json.error) {
-    const errorMsg =
-      typeof json.error === "object" && json.error !== null
-        ? (((json.error as Record<string, unknown>).message as string)
-          ?? "Unknown Spotify error")
-        : "Unknown Spotify error";
-    throw new Error(errorMsg);
-  }
-
-  // Cache GET responses
-  if (method === "GET") {
+  if (method === "GET" && data !== null) {
     if (responseCache.size >= MAX_CACHE_SIZE) {
       const oldest = responseCache.keys().next().value;
       if (oldest !== undefined) {
@@ -198,12 +211,12 @@ export async function spotifyRequest<T>(
       }
     }
     responseCache.set(cacheKey, {
-      data: json,
+      data,
       expiresAt: Date.now() + CACHE_TTL_MS,
     });
   }
 
-  return json as T;
+  return data;
 }
 
 function extractErrorMessage(body: string): string | null {
