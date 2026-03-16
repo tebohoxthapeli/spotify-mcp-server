@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { parseAuthEnv } from "./env.js";
@@ -106,9 +106,11 @@ const server = createServer(async (req, res) => {
       envContent += `\nSPOTIFY_REFRESH_TOKEN=${tokens.refresh_token}\n`;
     }
 
-    writeFileSync(envPath, envContent, {
+    const tmpPath = `${envPath}.tmp`;
+    writeFileSync(tmpPath, envContent, {
       mode: 0o600,
     });
+    renameSync(tmpPath, envPath);
     console.error("Refresh token saved to .env");
 
     res.writeHead(200, {
@@ -123,6 +125,7 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  clearTimeout(authTimeoutId);
   server.close(() => process.exit(0));
 });
 
@@ -130,7 +133,7 @@ server.listen(port, "127.0.0.1", () => {
   console.error(`Listening on http://127.0.0.1:${port}`);
 });
 
-setTimeout(() => {
+const authTimeoutId = setTimeout(() => {
   console.error("Auth timed out after 5 minutes.");
   server.close();
   process.exit(1);
