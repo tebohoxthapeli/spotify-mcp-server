@@ -255,6 +255,9 @@ export function withErrorHandling<TArgs>(
     try {
       return await handler(args);
     } catch (error) {
+      if (error instanceof Error) {
+        console.error("[Spotify MCP]", error);
+      }
       const message = error instanceof Error ? error.message : String(error);
 
       if (message.includes("fetch failed") || message.includes("ENOTFOUND")) {
