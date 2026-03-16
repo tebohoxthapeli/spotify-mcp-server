@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { parseAuthEnv } from "./env.js";
 
 const env = parseAuthEnv();
 const SCOPES =
-  "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private";
+  "user-read-playback-state user-modify-playback-state user-read-currently-playing user-read-recently-played playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private";
 const AUTH_TIMEOUT_MS = 300_000;
 
 const oauthState = randomUUID();
@@ -71,6 +71,7 @@ const server = createServer(async (req, res) => {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         method: "POST",
+        signal: AbortSignal.timeout(10_000),
       },
     );
 
@@ -106,9 +107,11 @@ const server = createServer(async (req, res) => {
       envContent += `\nSPOTIFY_REFRESH_TOKEN=${tokens.refresh_token}\n`;
     }
 
-    writeFileSync(envPath, envContent, {
+    const tmpPath = `${envPath}.tmp`;
+    writeFileSync(tmpPath, envContent, {
       mode: 0o600,
     });
+    renameSync(tmpPath, envPath);
     console.error("Refresh token saved to .env");
 
     res.writeHead(200, {
@@ -123,6 +126,7 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  clearTimeout(authTimeoutId);
   server.close(() => process.exit(0));
 });
 
@@ -130,7 +134,7 @@ server.listen(port, "127.0.0.1", () => {
   console.error(`Listening on http://127.0.0.1:${port}`);
 });
 
-setTimeout(() => {
+const authTimeoutId = setTimeout(() => {
   console.error("Auth timed out after 5 minutes.");
   server.close();
   process.exit(1);

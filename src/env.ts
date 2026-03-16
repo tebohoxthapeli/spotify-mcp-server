@@ -10,6 +10,13 @@ const baseSpotifySchema = z.object({
 });
 
 const serverEnvSchema = baseSpotifySchema.extend({
+  MCP_HTTP_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+  MCP_TRANSPORT: z
+    .enum([
+      "stdio",
+      "http",
+    ])
+    .default("stdio"),
   SPOTIFY_REFRESH_TOKEN: z.string().min(1),
 });
 

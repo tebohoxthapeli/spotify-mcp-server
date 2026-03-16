@@ -137,6 +137,87 @@ export const updatePlaylistInput = {
     .describe("Playlist URI to update"),
 };
 
+export const searchInput = {
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(20)
+    .describe("Max results per type (1-50)"),
+  offset: z
+    .number()
+    .int()
+    .min(0)
+    .max(1000)
+    .default(0)
+    .describe("Result offset for pagination"),
+  query: z
+    .string()
+    .min(1)
+    .describe(
+      "Search query (supports field filters: artist:, album:, track:, year:, genre:)",
+    ),
+  type: z
+    .array(
+      z.enum([
+        "track",
+        "artist",
+        "album",
+        "playlist",
+      ]),
+    )
+    .default([
+      "track",
+    ])
+    .describe("Result types to return"),
+};
+
+export const recentlyPlayedInput = {
+  after: z
+    .number()
+    .int()
+    .optional()
+    .describe("Unix timestamp ms — return items after this cursor"),
+  before: z
+    .number()
+    .int()
+    .optional()
+    .describe("Unix timestamp ms — return items before this cursor"),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(20)
+    .describe("Max items to return (1-50)"),
+};
+
+export const queueTrackInput = {
+  uri: z
+    .string()
+    .regex(spotifyUriRegex, "Invalid Spotify URI format")
+    .describe("Track or episode URI to add to queue"),
+};
+
+export const recommendationsInput = {
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(20)
+    .describe("Max tracks to return (1-100)"),
+  seed_artists: z
+    .array(z.string())
+    .optional()
+    .describe("Artist IDs to seed recommendations"),
+  seed_tracks: z
+    .array(z.string())
+    .optional()
+    .describe("Track IDs to seed recommendations"),
+};
+
 export const reorderPlaylistTracksInput = {
   insert_before: z.number().int().min(0).describe("Position to insert before"),
   range_length: z

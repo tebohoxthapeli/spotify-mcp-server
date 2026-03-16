@@ -11,6 +11,11 @@ export function textResult(text: string): CallToolResult {
   };
 }
 
+export const READ_ANNOTATIONS = {
+  destructiveHint: false,
+  readOnlyHint: true,
+} as const;
+
 export function extractIdFromUri(uri: string): string {
   const id = uri.split(":")[2];
   if (!id) {

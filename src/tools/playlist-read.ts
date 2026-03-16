@@ -8,12 +8,7 @@ import type {
   SpotifyPlaylistTracksPage,
   SpotifyTrack,
 } from "../types.js";
-import { extractIdFromUri, textResult } from "../utils.js";
-
-const READ_ANNOTATIONS = {
-  destructiveHint: false,
-  readOnlyHint: true,
-} as const;
+import { extractIdFromUri, READ_ANNOTATIONS, textResult } from "../utils.js";
 
 export function registerPlaylistReadTools(
   server: McpServer,
