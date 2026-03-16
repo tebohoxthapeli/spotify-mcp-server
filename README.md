@@ -6,8 +6,11 @@ Control Spotify from AI assistants via the [Model Context Protocol](https://mode
 
 - **Playback control** — play, pause, skip, seek, volume, shuffle, repeat
 - **Playlist management** — create, update, delete, add/remove/reorder tracks
+- **Search & discovery** — search the catalogue, get recommendations, view listening history
+- **Queue management** — add tracks or episodes to the playback queue
+- **Dual transport** — stdio (default) or HTTP
 - **Auto token refresh** — seamlessly refreshes OAuth tokens on expiry
-- **24 tools** — comprehensive coverage of Spotify's playback and playlist APIs
+- **28 tools** — comprehensive coverage of Spotify's playback, playlist, search, and discovery APIs
 
 ## Prerequisites
 
@@ -37,6 +40,14 @@ Control Spotify from AI assistants via the [Model Context Protocol](https://mode
 
    Fill in `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` from your Spotify app.
 
+   Optional variables:
+
+   | Variable               | Default                            | Description                  |
+   | ---------------------- | ---------------------------------- | ---------------------------- |
+   | `SPOTIFY_REDIRECT_URI` | `http://127.0.0.1:8888/callback`   | OAuth callback URL           |
+   | `MCP_TRANSPORT`        | `stdio`                            | Transport mode: stdio or http |
+   | `MCP_HTTP_PORT`        | `3001`                             | Port for HTTP transport      |
+
 4. **Authenticate**
 
    ```bash
@@ -53,13 +64,16 @@ Control Spotify from AI assistants via the [Model Context Protocol](https://mode
 # Development (auto-reload)
 bun run dev
 
+# Development with HTTP transport
+bun run dev:http
+
 # Production
 bun run serve
 ```
 
 ### MCP client configuration
 
-Add to your `.mcp.json` (or equivalent):
+**Stdio transport** — add to your `.mcp.json` (or equivalent):
 
 ```json
 {
@@ -72,6 +86,8 @@ Add to your `.mcp.json` (or equivalent):
   }
 }
 ```
+
+**HTTP transport** — start the server with `bun run start:http`, then connect to `http://localhost:3001`.
 
 ## Tools Reference
 
@@ -119,19 +135,40 @@ Add to your `.mcp.json` (or equivalent):
 | `spotify_update_playlist` | Update playlist name/description/visibility |
 | `spotify_reorder_tracks`  | Reorder tracks within a playlist            |
 
+### Search
+
+| Tool              | Description                                            |
+| ----------------- | ------------------------------------------------------ |
+| `spotify_search`  | Search for tracks, artists, albums, or playlists       |
+
+### Discovery
+
+| Tool                          | Description                                        |
+| ----------------------------- | -------------------------------------------------- |
+| `spotify_get_recently_played` | Get recently played tracks                         |
+| `spotify_queue_track`         | Add a track or episode to the playback queue       |
+| `spotify_get_recommendations` | Get track recommendations from seed artists/tracks |
+
 ## Development
 
 ### Scripts
 
-| Script                | Purpose                   |
-| --------------------- | ------------------------- |
-| `bun run dev`         | Start with auto-reload    |
-| `bun run build`       | Compile TypeScript        |
-| `bun run serve`       | Build and run             |
-| `bun test`            | Run tests                 |
-| `bun run biome-check` | Lint and format check     |
-| `bun run type-check`  | TypeScript type checking  |
-| `bun run super-check` | Lint + type-check + build |
+| Script                    | Purpose                        |
+| ------------------------- | ------------------------------ |
+| `bun run dev`             | Start with auto-reload         |
+| `bun run dev:http`        | Start with auto-reload (HTTP)  |
+| `bun run build`           | Compile TypeScript             |
+| `bun run serve`           | Build and run                  |
+| `bun run start`           | Run compiled server            |
+| `bun run start:http`      | Run compiled server (HTTP)     |
+| `bun test`                | Run tests                      |
+| `bun run biome-check`     | Lint and format check          |
+| `bun run biome-fix`       | Auto-fix lint/format issues    |
+| `bun run type-check`      | TypeScript type checking       |
+| `bun run super-check`     | Lint + type-check + build      |
+| `bun run super-check-fast`| Lint + type-check              |
+| `bun run super-fix`       | Auto-fix + full check          |
+| `bun run super-fix-fast`  | Auto-fix + fast check          |
 
 ### Project structure
 
@@ -140,15 +177,22 @@ src/
 ├── auth.ts              # OAuth authentication flow
 ├── env.ts               # Environment variable validation
 ├── index.ts             # Server entry point
+├── server.ts            # MCP server setup
 ├── schemas.ts           # Zod input schemas
 ├── spotify-client.ts    # Spotify API client with token refresh
+├── transport-http.ts    # HTTP transport layer
+├── transport-stdio.ts   # Stdio transport layer
 ├── types.ts             # Spotify API type definitions
 ├── utils.ts             # Shared utilities
 └── tools/
-    ├── playback-read.ts   # Playback read tools (6)
-    ├── playback-write.ts  # Playback write tools (10)
-    ├── playlist-read.ts   # Playlist read tools (2)
-    └── playlist-write.ts  # Playlist write tools (6)
+    ├── playback-read.ts       # Playback read tools (6)
+    ├── playback-write.ts      # Playback write tools (10)
+    ├── playlist-read.ts       # Playlist read tools (2)
+    ├── playlist-write.ts      # Playlist write tools (6)
+    ├── search.ts              # Search tool (1)
+    ├── history.ts             # Recently played tool (1)
+    ├── queue.ts               # Queue tool (1)
+    └── recommendations.ts     # Recommendations tool (1)
 ```
 
 ## Tech Stack
