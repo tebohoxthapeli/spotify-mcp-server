@@ -47,7 +47,7 @@ export function registerSearchTools(server: McpServer, env: ServerEnv): void {
       if (data.artists?.items.length) {
         const lines = data.artists.items.map(
           (a) =>
-            `  ${a.name}${a.genres.length ? ` [${a.genres.join(", ")}]` : ""} (${a.uri})`,
+            `  ${a.name}${a.genres?.length ? ` [${a.genres.join(", ")}]` : ""} (${a.uri})`,
         );
         sections.push(
           `Artists (${data.artists.total} total):\n${lines.join("\n")}`,
