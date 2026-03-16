@@ -6,6 +6,7 @@ import { registerWriteTools } from "./tools/playback-write.js";
 import { registerPlaylistReadTools } from "./tools/playlist-read.js";
 import { registerPlaylistWriteTools } from "./tools/playlist-write.js";
 import { registerQueueTools } from "./tools/queue.js";
+import { registerRecommendationTools } from "./tools/recommendations.js";
 import { registerSearchTools } from "./tools/search.js";
 
 export function createServer(env: ServerEnv): McpServer {
@@ -21,6 +22,7 @@ export function createServer(env: ServerEnv): McpServer {
   registerSearchTools(server, env);
   registerHistoryTools(server, env);
   registerQueueTools(server, env);
+  registerRecommendationTools(server, env);
 
   return server;
 }

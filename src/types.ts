@@ -142,3 +142,14 @@ export type SpotifyCursorPage<T> = Readonly<{
   next: string | null;
   total: number;
 }>;
+
+export type SpotifySimplifiedTrack = Readonly<{
+  artists: readonly SpotifyArtist[];
+  duration_ms: number;
+  external_urls: Readonly<{
+    spotify: string;
+  }>;
+  id: string;
+  name: string;
+  uri: string;
+}>;

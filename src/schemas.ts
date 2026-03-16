@@ -200,6 +200,24 @@ export const queueTrackInput = {
     .describe("Track or episode URI to add to queue"),
 };
 
+export const recommendationsInput = {
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(20)
+    .describe("Max tracks to return (1-100)"),
+  seed_artists: z
+    .array(z.string())
+    .optional()
+    .describe("Artist IDs to seed recommendations"),
+  seed_tracks: z
+    .array(z.string())
+    .optional()
+    .describe("Track IDs to seed recommendations"),
+};
+
 export const reorderPlaylistTracksInput = {
   insert_before: z.number().int().min(0).describe("Position to insert before"),
   range_length: z
