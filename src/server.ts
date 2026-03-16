@@ -1,9 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ServerEnv } from "./env.js";
+import { registerHistoryTools } from "./tools/history.js";
 import { registerReadTools } from "./tools/playback-read.js";
 import { registerWriteTools } from "./tools/playback-write.js";
 import { registerPlaylistReadTools } from "./tools/playlist-read.js";
 import { registerPlaylistWriteTools } from "./tools/playlist-write.js";
+import { registerQueueTools } from "./tools/queue.js";
+import { registerSearchTools } from "./tools/search.js";
 
 export function createServer(env: ServerEnv): McpServer {
   const server = new McpServer({
@@ -15,6 +18,9 @@ export function createServer(env: ServerEnv): McpServer {
   registerWriteTools(server, env);
   registerPlaylistReadTools(server, env);
   registerPlaylistWriteTools(server, env);
+  registerSearchTools(server, env);
+  registerHistoryTools(server, env);
+  registerQueueTools(server, env);
 
   return server;
 }

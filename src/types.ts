@@ -103,3 +103,42 @@ export type SpotifyPlaylistTracksPage = Readonly<{
   offset: number;
   total: number;
 }>;
+
+export type SpotifyPaginatedResult<T> = Readonly<{
+  items: readonly T[];
+  limit: number;
+  next: string | null;
+  offset: number;
+  total: number;
+}>;
+
+export type SpotifySearchArtist = Readonly<{
+  genres: readonly string[];
+  id: string;
+  name: string;
+  popularity: number;
+  uri: string;
+}>;
+
+export type SpotifySearchResult = Readonly<{
+  albums?: SpotifyPaginatedResult<SpotifyAlbum>;
+  artists?: SpotifyPaginatedResult<SpotifySearchArtist>;
+  playlists?: SpotifyPaginatedResult<SpotifyPlaylist>;
+  tracks?: SpotifyPaginatedResult<SpotifyTrack>;
+}>;
+
+export type SpotifyPlayHistoryItem = Readonly<{
+  played_at: string;
+  track: SpotifyTrack;
+}>;
+
+export type SpotifyCursorPage<T> = Readonly<{
+  cursors: Readonly<{
+    after: string;
+    before: string;
+  }> | null;
+  items: readonly T[];
+  limit: number;
+  next: string | null;
+  total: number;
+}>;

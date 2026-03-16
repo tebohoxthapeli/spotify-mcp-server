@@ -6,7 +6,7 @@ import { parseAuthEnv } from "./env.js";
 
 const env = parseAuthEnv();
 const SCOPES =
-  "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private";
+  "user-read-playback-state user-modify-playback-state user-read-currently-playing user-read-recently-played playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private";
 const AUTH_TIMEOUT_MS = 300_000;
 
 const oauthState = randomUUID();
