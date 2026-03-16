@@ -152,6 +152,32 @@ async function parseResponseBody<T>(
   return json as T;
 }
 
+function getCachedResponse<T>(cacheKey: string): T | undefined {
+  const cached = responseCache.get(cacheKey);
+  if (!cached) return undefined;
+
+  if (Date.now() < cached.expiresAt) {
+    return cached.data as T;
+  }
+
+  responseCache.delete(cacheKey);
+  return undefined;
+}
+
+function cacheResponse(cacheKey: string, data: unknown): void {
+  if (responseCache.size >= MAX_CACHE_SIZE) {
+    const oldest = responseCache.keys().next().value;
+    if (oldest !== undefined) {
+      responseCache.delete(oldest);
+    }
+  }
+
+  responseCache.set(cacheKey, {
+    data,
+    expiresAt: Date.now() + CACHE_TTL_MS,
+  });
+}
+
 export async function spotifyRequest<T>(
   env: ServerEnv,
   endpoint: string,
@@ -161,27 +187,19 @@ export async function spotifyRequest<T>(
 ): Promise<T | null> {
   const token = await getAccessToken(env);
 
-  let url = `${SPOTIFY_API_BASE}${endpoint}`;
-  if (queryParams) {
-    url += `?${new URLSearchParams(queryParams).toString()}`;
-  }
-
-  const cacheKey = queryParams
-    ? `${endpoint}?${new URLSearchParams(queryParams).toString()}`
-    : endpoint;
+  const queryString = queryParams
+    ? `?${new URLSearchParams(queryParams).toString()}`
+    : "";
+  const url = `${SPOTIFY_API_BASE}${endpoint}${queryString}`;
+  const cacheKey = `${endpoint}${queryString}`;
 
   if (method !== "GET") {
     responseCache.clear();
   }
 
   if (method === "GET") {
-    const cached = responseCache.get(cacheKey);
-    if (cached) {
-      if (Date.now() < cached.expiresAt) {
-        return cached.data as T;
-      }
-      responseCache.delete(cacheKey);
-    }
+    const cached = getCachedResponse<T>(cacheKey);
+    if (cached !== undefined) return cached;
   }
 
   const headers: Record<string, string> = {
@@ -204,16 +222,7 @@ export async function spotifyRequest<T>(
   const data = await parseResponseBody<T>(response, endpoint, method);
 
   if (method === "GET" && data !== null) {
-    if (responseCache.size >= MAX_CACHE_SIZE) {
-      const oldest = responseCache.keys().next().value;
-      if (oldest !== undefined) {
-        responseCache.delete(oldest);
-      }
-    }
-    responseCache.set(cacheKey, {
-      data,
-      expiresAt: Date.now() + CACHE_TTL_MS,
-    });
+    cacheResponse(cacheKey, data);
   }
 
   return data;

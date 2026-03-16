@@ -54,6 +54,78 @@ async function getTopTracksFromArtist(
   );
 }
 
+async function resolveSeedArtists(
+  env: ServerEnv,
+  seedArtists: readonly string[] | undefined,
+  seedTrackIds: readonly string[],
+): Promise<Set<string>> {
+  const artistIds = new Set<string>(seedArtists ?? []);
+
+  if (seedTrackIds.length === 0) return artistIds;
+
+  const trackResults = await spotifyRequest<SpotifyTracksResponse>(
+    env,
+    "/tracks",
+    "GET",
+    undefined,
+    {
+      ids: seedTrackIds.join(","),
+    },
+  );
+
+  if (!trackResults?.tracks) return artistIds;
+
+  for (const track of trackResults.tracks) {
+    if (track) {
+      for (const artist of track.artists) {
+        artistIds.add(artist.id);
+      }
+    }
+  }
+
+  return artistIds;
+}
+
+async function collectCandidates(
+  env: ServerEnv,
+  artistIds: ReadonlySet<string>,
+  seedTrackIds: readonly string[],
+): Promise<EnrichedTrack[]> {
+  const artistTrackResults = await Promise.all(
+    [
+      ...artistIds,
+    ].map((id) => getTopTracksFromArtist(env, id)),
+  );
+
+  const seen = new Set<string>(seedTrackIds);
+  const candidates: EnrichedTrack[] = [];
+
+  for (const tracks of artistTrackResults) {
+    for (const track of tracks) {
+      if (!seen.has(track.id)) {
+        seen.add(track.id);
+        candidates.push(track);
+      }
+    }
+  }
+
+  return candidates;
+}
+
+function formatRecommendations(
+  candidates: readonly EnrichedTrack[],
+  limit: number,
+): string {
+  const shuffled = shuffleArray(candidates).slice(0, limit);
+
+  const lines = shuffled.map(
+    (t) =>
+      `  ${t.name} — ${t.artists.map((a) => a.name).join(", ")} [${t.albumName}] (${t.uri})`,
+  );
+
+  return `Recommendations (${shuffled.length} tracks):\n${lines.join("\n")}`;
+}
+
 export function registerRecommendationTools(
   server: McpServer,
   env: ServerEnv,
@@ -76,31 +148,12 @@ export function registerRecommendationTools(
         );
       }
 
-      const artistIds = new Set<string>(seed_artists ?? []);
       const seedTrackIds = seed_tracks ?? [];
-
-      // Batch lookup seed tracks (single request instead of N individual calls)
-      if (seedTrackIds.length > 0) {
-        const trackResults = await spotifyRequest<SpotifyTracksResponse>(
-          env,
-          "/tracks",
-          "GET",
-          undefined,
-          {
-            ids: seedTrackIds.join(","),
-          },
-        );
-
-        if (trackResults?.tracks) {
-          for (const track of trackResults.tracks) {
-            if (track) {
-              for (const artist of track.artists) {
-                artistIds.add(artist.id);
-              }
-            }
-          }
-        }
-      }
+      const artistIds = await resolveSeedArtists(
+        env,
+        seed_artists,
+        seedTrackIds,
+      );
 
       if (artistIds.size === 0) {
         return textResult(
@@ -108,39 +161,13 @@ export function registerRecommendationTools(
         );
       }
 
-      // Fetch top tracks per artist (1 call each vs 6+ with album crawling)
-      const artistTrackRequests = [
-        ...artistIds,
-      ].map((id) => getTopTracksFromArtist(env, id));
-      const artistTrackResults = await Promise.all(artistTrackRequests);
-
-      // Merge, deduplicate, exclude seed tracks
-      const seen = new Set<string>(seedTrackIds);
-      const candidates: EnrichedTrack[] = [];
-
-      for (const tracks of artistTrackResults) {
-        for (const track of tracks) {
-          if (!seen.has(track.id)) {
-            seen.add(track.id);
-            candidates.push(track);
-          }
-        }
-      }
+      const candidates = await collectCandidates(env, artistIds, seedTrackIds);
 
       if (candidates.length === 0) {
         return textResult("No recommendations found for the provided seeds.");
       }
 
-      const shuffled = shuffleArray(candidates).slice(0, limit);
-
-      const lines = shuffled.map(
-        (t) =>
-          `  ${t.name} — ${t.artists.map((a) => a.name).join(", ")} [${t.albumName}] (${t.uri})`,
-      );
-
-      return textResult(
-        `Recommendations (${shuffled.length} tracks):\n${lines.join("\n")}`,
-      );
+      return textResult(formatRecommendations(candidates, limit));
     }),
   );
 }
