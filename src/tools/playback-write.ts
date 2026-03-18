@@ -8,8 +8,8 @@ import {
   setVolumeInput,
 } from "../schemas.js";
 import { spotifyRequest, withErrorHandling } from "../spotify-client.js";
-import type { SpotifyPlayerState } from "../types.js";
-import { textResult } from "../utils.js";
+import type { SpotifyPlayerState, SpotifyTrack } from "../types.js";
+import { extractIdFromUri, formatDuration, textResult } from "../utils.js";
 
 export function registerWriteTools(server: McpServer, env: ServerEnv): void {
   server.tool(
@@ -123,6 +123,29 @@ export function registerWriteTools(server: McpServer, env: ServerEnv): void {
           };
 
       await spotifyRequest(env, "/me/player/play", "PUT", body);
+
+      // Fetch track metadata for a rich response
+      if (uri.startsWith("spotify:track:")) {
+        const trackId = extractIdFromUri(uri);
+        const track = await spotifyRequest<SpotifyTrack>(
+          env,
+          `/tracks/${trackId}`,
+        );
+
+        if (track) {
+          const artists = track.artists.map((a) => a.name).join(", ");
+          return textResult(
+            [
+              `Now playing: ${track.name}`,
+              `Artist: ${artists}`,
+              `Album: ${track.album.name}`,
+              `Duration: ${formatDuration(track.duration_ms)}`,
+              `URI: ${track.uri}`,
+            ].join("\n"),
+          );
+        }
+      }
+
       return textResult(`Now playing: ${uri}`);
     }),
   );
