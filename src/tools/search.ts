@@ -3,27 +3,39 @@ import type { ServerEnv } from "../env.js";
 import { searchInput } from "../schemas.js";
 import { spotifyRequest, withErrorHandling } from "../spotify-client.js";
 import type { SpotifySearchResult } from "../types.js";
-import { textResult } from "../utils.js";
+import { formatDuration, normaliseSearchQuery, textResult } from "../utils.js";
 
 export function registerSearchTools(server: McpServer, env: ServerEnv): void {
   server.tool(
     "spotify_search",
-    "Search Spotify for tracks, artists, albums, or playlists",
+    `Search Spotify for tracks, artists, albums, or playlists.
+
+Query tips for best results:
+- Plain text: "Connor Rhys Take Me Home" searches all fields
+- Field filters auto-quote multi-word values: artist:Connor Rhys → artist:"Connor Rhys"
+- Combine filters: artist:Radiohead album:OK Computer
+- Year ranges: year:2020-2024
+- Genre: genre:indie
+
+For exact artist matches, prefer the artist: field filter over plain text.`,
     searchInput,
     {
       destructiveHint: false,
       readOnlyHint: true,
     },
     withErrorHandling(async ({ query, type, limit, offset }) => {
+      const normalisedQuery = normaliseSearchQuery(query);
+      const clampedLimit = Math.min(Math.max(1, limit), 50);
+
       const data = await spotifyRequest<SpotifySearchResult>(
         env,
         "/search",
         "GET",
         undefined,
         {
-          limit: String(limit),
+          limit: String(clampedLimit),
           offset: String(offset),
-          q: query,
+          q: normalisedQuery,
           type: type.join(","),
         },
       );
@@ -37,7 +49,7 @@ export function registerSearchTools(server: McpServer, env: ServerEnv): void {
       if (data.tracks?.items.length) {
         const lines = data.tracks.items.map(
           (t) =>
-            `  ${t.name} — ${t.artists.map((a) => a.name).join(", ")} [${t.album.name}] (${t.uri})`,
+            `  ${t.name} — ${t.artists.map((a) => a.name).join(", ")} [${t.album.name}] (${formatDuration(t.duration_ms)}) (${t.uri})`,
         );
         sections.push(
           `Tracks (${data.tracks.total} total):\n${lines.join("\n")}`,

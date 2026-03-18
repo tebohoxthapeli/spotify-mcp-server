@@ -23,3 +23,34 @@ export function extractIdFromUri(uri: string): string {
   }
   return id;
 }
+
+/**
+ * Auto-quote multi-word field filter values for Spotify search.
+ * Transforms `artist:Connor Rhys` → `artist:"Connor Rhys"`
+ * Already-quoted values and single-word values are left untouched.
+ */
+export function normaliseSearchQuery(query: string): string {
+  // Match field:value patterns, handling both quoted and unquoted values
+  return query.replace(
+    /\b(artist|album|track|year|genre):("(?:[^"\\]|\\.)*"|\S+(?:\s+(?!artist:|album:|track:|year:|genre:|\s*$)\S+)*)/gi,
+    (_match, field: string, value: string) => {
+      // Already quoted — leave as-is
+      if (value.startsWith('"') && value.endsWith('"')) {
+        return `${field}:${value}`;
+      }
+      // Single word — no quoting needed
+      if (!value.includes(" ")) {
+        return `${field}:${value}`;
+      }
+      // Multi-word — wrap in quotes
+      return `${field}:"${value}"`;
+    },
+  );
+}
+
+export function formatDuration(ms: number): string {
+  const totalSeconds = Math.round(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
