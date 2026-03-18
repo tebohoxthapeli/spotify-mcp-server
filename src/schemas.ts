@@ -7,6 +7,8 @@ const spotifyTrackUriRegex = /^spotify:track:[a-zA-Z0-9]+$/;
 
 const spotifyPlaylistUriRegex = /^spotify:playlist:[a-zA-Z0-9]+$/;
 
+const spotifyArtistUriRegex = /^spotify:artist:[a-zA-Z0-9]+$/;
+
 export const playTrackInput = {
   context: z
     .string()
@@ -216,6 +218,13 @@ export const recommendationsInput = {
     .array(z.string())
     .optional()
     .describe("Track IDs to seed recommendations"),
+};
+
+export const getArtistTopTracksInput = {
+  uri: z
+    .string()
+    .regex(spotifyArtistUriRegex, "Must be an artist URI (spotify:artist:...)")
+    .describe("Artist URI (e.g. spotify:artist:4Z8W4fKeB5YxbusRsdQVPb)"),
 };
 
 export const reorderPlaylistTracksInput = {
