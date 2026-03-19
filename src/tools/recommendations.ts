@@ -3,19 +3,15 @@ import type { ServerEnv } from "../env.js";
 import { recommendationsInput } from "../schemas.js";
 import { spotifyRequest, withErrorHandling } from "../spotify-client.js";
 import type {
-  SpotifyTopTracksResponse,
+  SpotifySearchResult,
+  SpotifyTrack,
   SpotifyTracksResponse,
 } from "../types.js";
-import { textResult } from "../utils.js";
+import { formatDuration, textResult } from "../utils.js";
 
-type EnrichedTrack = Readonly<{
-  albumName: string;
-  artists: readonly {
-    readonly name: string;
-  }[];
+type ArtistProfile = Readonly<{
   id: string;
   name: string;
-  uri: string;
 }>;
 
 export function shuffleArray<T>(array: readonly T[]): T[] {
@@ -32,75 +28,79 @@ export function shuffleArray<T>(array: readonly T[]): T[] {
   return result;
 }
 
-async function getTopTracksFromArtist(
-  env: ServerEnv,
-  artistId: string,
-): Promise<readonly EnrichedTrack[]> {
-  const response = await spotifyRequest<SpotifyTopTracksResponse>(
-    env,
-    `/artists/${artistId}/top-tracks`,
-  );
-
-  if (!response?.tracks.length) return [];
-
-  return response.tracks.map(
-    (track): EnrichedTrack => ({
-      albumName: track.album.name,
-      artists: track.artists,
-      id: track.id,
-      name: track.name,
-      uri: track.uri,
-    }),
-  );
-}
-
-async function resolveSeedArtists(
+async function resolveArtistNames(
   env: ServerEnv,
   seedArtists: readonly string[] | undefined,
   seedTrackIds: readonly string[],
-): Promise<Set<string>> {
-  const artistIds = new Set<string>(seedArtists ?? []);
+): Promise<ReadonlySet<string>> {
+  const artistNames = new Set<string>();
 
-  if (seedTrackIds.length === 0) return artistIds;
+  // Resolve artist IDs to names
+  if (seedArtists?.length) {
+    const nameResults = await Promise.all(
+      seedArtists.map((id) =>
+        spotifyRequest<ArtistProfile>(env, `/artists/${id}`),
+      ),
+    );
+    for (const artist of nameResults) {
+      if (artist?.name) artistNames.add(artist.name);
+    }
+  }
 
-  const trackResults = await spotifyRequest<SpotifyTracksResponse>(
-    env,
-    "/tracks",
-    "GET",
-    undefined,
-    {
-      ids: seedTrackIds.join(","),
-    },
-  );
+  // Resolve seed tracks to their artist names
+  if (seedTrackIds.length > 0) {
+    const trackResults = await spotifyRequest<SpotifyTracksResponse>(
+      env,
+      "/tracks",
+      "GET",
+      undefined,
+      {
+        ids: seedTrackIds.join(","),
+      },
+    );
 
-  if (!trackResults?.tracks) return artistIds;
-
-  for (const track of trackResults.tracks) {
-    if (track) {
-      for (const artist of track.artists) {
-        artistIds.add(artist.id);
+    if (trackResults?.tracks) {
+      for (const track of trackResults.tracks) {
+        if (track) {
+          for (const artist of track.artists) {
+            artistNames.add(artist.name);
+          }
+        }
       }
     }
   }
 
-  return artistIds;
+  return artistNames;
 }
 
-async function collectCandidates(
+async function searchTracksByArtist(
   env: ServerEnv,
-  artistIds: ReadonlySet<string>,
-  seedTrackIds: readonly string[],
-): Promise<EnrichedTrack[]> {
-  const artistTrackResults = await Promise.all(
-    [
-      ...artistIds,
-    ].map((id) => getTopTracksFromArtist(env, id)),
+  artistName: string,
+  limit: number,
+): Promise<readonly SpotifyTrack[]> {
+  const data = await spotifyRequest<SpotifySearchResult>(
+    env,
+    "/search",
+    "GET",
+    undefined,
+    {
+      limit: String(limit),
+      q: `artist:"${artistName}"`,
+      type: "track",
+    },
   );
 
-  const seen = new Set<string>(seedTrackIds);
-  const candidates: EnrichedTrack[] = [];
+  return data?.tracks?.items ?? [];
+}
 
-  for (const tracks of artistTrackResults) {
+function collectCandidates(
+  tracksByArtist: readonly (readonly SpotifyTrack[])[],
+  seedTrackIds: readonly string[],
+): SpotifyTrack[] {
+  const seen = new Set<string>(seedTrackIds);
+  const candidates: SpotifyTrack[] = [];
+
+  for (const tracks of tracksByArtist) {
     for (const track of tracks) {
       if (!seen.has(track.id)) {
         seen.add(track.id);
@@ -113,14 +113,14 @@ async function collectCandidates(
 }
 
 function formatRecommendations(
-  candidates: readonly EnrichedTrack[],
+  candidates: readonly SpotifyTrack[],
   limit: number,
 ): string {
   const shuffled = shuffleArray(candidates).slice(0, limit);
 
   const lines = shuffled.map(
     (t) =>
-      `  ${t.name} — ${t.artists.map((a) => a.name).join(", ")} [${t.albumName}] (${t.uri})`,
+      `  ${t.name} — ${t.artists.map((a) => a.name).join(", ")} [${t.album.name}] (${formatDuration(t.duration_ms)}) (${t.uri})`,
   );
 
   return `Recommendations (${shuffled.length} tracks):\n${lines.join("\n")}`;
@@ -149,19 +149,30 @@ export function registerRecommendationTools(
       }
 
       const seedTrackIds = seed_tracks ?? [];
-      const artistIds = await resolveSeedArtists(
+      const artistNames = await resolveArtistNames(
         env,
         seed_artists,
         seedTrackIds,
       );
 
-      if (artistIds.size === 0) {
+      if (artistNames.size === 0) {
         return textResult(
           "Could not resolve any artists from the provided seeds.",
         );
       }
 
-      const candidates = await collectCandidates(env, artistIds, seedTrackIds);
+      // Search for tracks by each artist in parallel
+      const perArtistLimit = Math.max(
+        5,
+        Math.ceil((limit * 2) / artistNames.size),
+      );
+      const tracksByArtist = await Promise.all(
+        [
+          ...artistNames,
+        ].map((name) => searchTracksByArtist(env, name, perArtistLimit)),
+      );
+
+      const candidates = collectCandidates(tracksByArtist, seedTrackIds);
 
       if (candidates.length === 0) {
         return textResult("No recommendations found for the provided seeds.");

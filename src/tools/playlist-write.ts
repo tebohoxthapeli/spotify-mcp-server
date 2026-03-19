@@ -102,7 +102,7 @@ export function registerPlaylistWriteTools(
     withErrorHandling(async ({ playlist_uri, track_uris, snapshot_id }) => {
       const id = extractIdFromUri(playlist_uri);
       const body: Record<string, unknown> = {
-        tracks: track_uris.map((uri) => ({
+        items: track_uris.map((uri) => ({
           uri,
         })),
       };
