@@ -6,3 +6,4 @@ docs/
 .env
 .env.*.local
 .mcp.json
+*.log
