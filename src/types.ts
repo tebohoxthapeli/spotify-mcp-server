@@ -113,10 +113,10 @@ export type SpotifyPaginatedResult<T> = Readonly<{
 }>;
 
 export type SpotifySearchArtist = Readonly<{
-  genres: readonly string[];
+  genres?: readonly string[];
   id: string;
   name: string;
-  popularity: number;
+  popularity?: number;
   uri: string;
 }>;
 
@@ -160,4 +160,40 @@ export type SpotifySimplifiedTrack = Readonly<{
   id: string;
   name: string;
   uri: string;
+}>;
+
+export type SpotifyUserProfile = Readonly<{
+  display_name: string | null;
+  email?: string;
+  country?: string;
+  external_urls: Readonly<{
+    spotify: string;
+  }>;
+  followers?: Readonly<{
+    total: number;
+  }>;
+  id: string;
+  images: readonly SpotifyImage[];
+  product?: string;
+  uri: string;
+}>;
+
+export type SpotifyTopItemsResponse<T> = Readonly<{
+  items: readonly T[];
+  limit: number;
+  next: string | null;
+  offset: number;
+  total: number;
+}>;
+
+export type SpotifyFollowedArtistsResponse = Readonly<{
+  artists: Readonly<{
+    cursors: Readonly<{
+      after: string | null;
+    }> | null;
+    items: readonly SpotifySearchArtist[];
+    limit: number;
+    next: string | null;
+    total: number;
+  }>;
 }>;

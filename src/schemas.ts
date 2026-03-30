@@ -227,6 +227,45 @@ export const getArtistTopTracksInput = {
     .describe("Artist URI (e.g. spotify:artist:4Z8W4fKeB5YxbusRsdQVPb)"),
 };
 
+export const topItemsInput = {
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(20)
+    .describe("Max items (1-50)"),
+  offset: z.number().int().min(0).default(0).describe("Offset for pagination"),
+  time_range: z
+    .enum([
+      "short_term",
+      "medium_term",
+      "long_term",
+    ])
+    .default("medium_term")
+    .describe("short_term (~4wks), medium_term (~6mo), long_term (~1yr)"),
+  type: z
+    .enum([
+      "artists",
+      "tracks",
+    ])
+    .describe("Type of top items"),
+};
+
+export const followedArtistsInput = {
+  after: z
+    .string()
+    .optional()
+    .describe("Last artist ID from previous page (cursor)"),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(50)
+    .default(20)
+    .describe("Max artists (1-50)"),
+};
+
 export const reorderPlaylistTracksInput = {
   insert_before: z.number().int().min(0).describe("Position to insert before"),
   range_length: z

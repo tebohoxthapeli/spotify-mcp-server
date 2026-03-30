@@ -9,6 +9,7 @@ import { registerPlaylistWriteTools } from "./tools/playlist-write.js";
 import { registerQueueTools } from "./tools/queue.js";
 import { registerRecommendationTools } from "./tools/recommendations.js";
 import { registerSearchTools } from "./tools/search.js";
+import { registerUserTools } from "./tools/user.js";
 
 export function createServer(env: ServerEnv): McpServer {
   const server = new McpServer({
@@ -25,6 +26,7 @@ export function createServer(env: ServerEnv): McpServer {
   registerHistoryTools(server, env);
   registerQueueTools(server, env);
   registerRecommendationTools(server, env);
+  registerUserTools(server, env);
 
   return server;
 }
