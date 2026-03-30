@@ -10,114 +10,14 @@
  */
 
 import { parseServerEnv, type ServerEnv } from "./env.js";
-
-const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
-const TOKEN_URL = "https://accounts.spotify.com/api/token";
-const TOKEN_BUFFER_MS = 60_000;
-const FETCH_TIMEOUT_MS = 10_000;
-
-let tokenCache: {
-  accessToken: string;
-  expiresAt: number;
-} | null = null;
-
-async function getAccessToken(env: ServerEnv): Promise<string> {
-  if (tokenCache && Date.now() < tokenCache.expiresAt - TOKEN_BUFFER_MS) {
-    return tokenCache.accessToken;
-  }
-
-  const response = await fetch(TOKEN_URL, {
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: env.SPOTIFY_REFRESH_TOKEN,
-    }),
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    method: "POST",
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    if (response.status === 400 && body.includes("invalid_grant")) {
-      throw new Error("Spotify auth expired. Re-run: bun run auth");
-    }
-    throw new Error(`Token refresh failed (${response.status})`);
-  }
-
-  const data = (await response.json()) as Record<string, unknown>;
-
-  if (
-    typeof data.access_token !== "string"
-    || typeof data.expires_in !== "number"
-  ) {
-    throw new Error("Invalid token response");
-  }
-
-  tokenCache = {
-    accessToken: data.access_token,
-    expiresAt: Date.now() + data.expires_in * 1000,
-  };
-
-  return tokenCache.accessToken;
-}
-
-async function spotifyRequest<T>(
-  env: ServerEnv,
-  endpoint: string,
-  method: "GET" | "PUT" | "POST" | "DELETE" = "GET",
-  body?: Record<string, unknown>,
-  queryParams?: Record<string, string>,
-): Promise<T | null> {
-  const token = await getAccessToken(env);
-
-  const queryString = queryParams
-    ? `?${new URLSearchParams(queryParams).toString()}`
-    : "";
-  const url = `${SPOTIFY_API_BASE}${endpoint}${queryString}`;
-
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-  };
-  if (body) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  const response = await fetch(url, {
-    headers,
-    method,
-    ...(body
-      ? {
-          body: JSON.stringify(body),
-        }
-      : {}),
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Spotify API error (${response.status}): ${errorBody}`);
-  }
-
-  const text = (await response.text()).trim();
-  if (!text) {
-    return null;
-  }
-
-  return JSON.parse(text) as T;
-}
-
-function formatDuration(ms: number): string {
-  const minutes = Math.floor(ms / 60000);
-  const seconds = Math.floor((ms % 60000) / 1000);
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
+import { spotifyRequest } from "./spotify-client.js";
+import type {
+  SpotifyCurrentlyPlaying,
+  SpotifyPlayerState,
+  SpotifyPlaylistPage,
+  SpotifySearchResult,
+} from "./types.js";
+import { extractIdFromUri, formatDuration } from "./utils.js";
 
 async function search(
   env: ServerEnv,
@@ -126,25 +26,17 @@ async function search(
     "track",
   ],
 ): Promise<void> {
-  const data = await spotifyRequest<{
-    tracks?: {
-      items: Array<{
-        name: string;
-        uri: string;
-        artists: Array<{
-          name: string;
-        }>;
-        album: {
-          name: string;
-        };
-        duration_ms: number;
-      }>;
-    };
-  }>(env, "/search", "GET", undefined, {
-    limit: "10",
-    q: query,
-    type: type.join(","),
-  });
+  const data = await spotifyRequest<SpotifySearchResult>(
+    env,
+    "/search",
+    "GET",
+    undefined,
+    {
+      limit: "10",
+      q: query,
+      type: type.join(","),
+    },
+  );
 
   if (!data?.tracks?.items.length) {
     console.log("No tracks found.");
@@ -164,21 +56,10 @@ async function search(
 }
 
 async function queueTrack(env: ServerEnv, uri: string): Promise<void> {
-  try {
-    await spotifyRequest(env, "/me/player/queue", "POST", undefined, {
-      uri,
-    });
-    console.log(`Added to queue: ${uri}`);
-  } catch (error) {
-    // Spotify returns 204 for successful queue additions, but sometimes the response
-    // body parsing fails. Check if it's a JSON parse error - the track was likely added.
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("JSON") || message.includes("Unexpected")) {
-      console.log(`Added to queue: ${uri}`);
-    } else {
-      throw error;
-    }
-  }
+  await spotifyRequest(env, "/me/player/queue", "POST", undefined, {
+    uri,
+  });
+  console.log(`Added to queue: ${uri}`);
 }
 
 async function getQueue(env: ServerEnv): Promise<void> {
@@ -242,20 +123,10 @@ async function getQueue(env: ServerEnv): Promise<void> {
 }
 
 async function getCurrentTrack(env: ServerEnv): Promise<void> {
-  const data = await spotifyRequest<{
-    item: {
-      name: string;
-      uri: string;
-      artists: Array<{
-        name: string;
-      }>;
-      album: {
-        name: string;
-      };
-      duration_ms: number;
-    } | null;
-    is_playing: boolean;
-  } | null>(env, "/me/player/currently-playing", "GET");
+  const data = await spotifyRequest<SpotifyCurrentlyPlaying>(
+    env,
+    "/me/player/currently-playing",
+  );
 
   if (!data?.item) {
     console.log("No track currently playing.");
@@ -313,25 +184,7 @@ async function transferPlayback(
 }
 
 async function getPlayerState(env: ServerEnv): Promise<void> {
-  const data = await spotifyRequest<{
-    device: {
-      id: string;
-      name: string;
-      type: string;
-      is_active: boolean;
-    } | null;
-    is_playing: boolean;
-    item: {
-      name: string;
-      uri: string;
-      artists: Array<{
-        name: string;
-      }>;
-      album: {
-        name: string;
-      };
-    } | null;
-  } | null>(env, "/me/player", "GET");
+  const data = await spotifyRequest<SpotifyPlayerState>(env, "/me/player");
 
   if (!data) {
     console.log("No active player session.");
@@ -354,23 +207,15 @@ async function getPlayerState(env: ServerEnv): Promise<void> {
 }
 
 async function getPlaylists(env: ServerEnv): Promise<void> {
-  const data = await spotifyRequest<{
-    items: Array<{
-      id: string;
-      name: string;
-      uri: string;
-      owner: {
-        display_name: string | null;
-      };
-      tracks?: {
-        total: number;
-      };
-    }>;
-    next: string | null;
-    total: number;
-  } | null>(env, "/me/playlists", "GET", undefined, {
-    limit: "50",
-  });
+  const data = await spotifyRequest<SpotifyPlaylistPage>(
+    env,
+    "/me/playlists",
+    "GET",
+    undefined,
+    {
+      limit: "50",
+    },
+  );
 
   if (!data?.items?.length) {
     console.log("No playlists found.");
@@ -398,14 +243,7 @@ async function addToPlaylist(
   playlistUri: string,
   trackUri: string,
 ): Promise<void> {
-  // Extract playlist ID from URI (spotify:playlist:xxx)
-  const playlistId = playlistUri.split(":")[2];
-  if (!playlistId) {
-    throw new Error(
-      "Invalid playlist URI format. Expected spotify:playlist:xxx",
-    );
-  }
-
+  const playlistId = extractIdFromUri(playlistUri);
   await spotifyRequest(env, `/playlists/${playlistId}/items`, "POST", {
     uris: [
       trackUri,
