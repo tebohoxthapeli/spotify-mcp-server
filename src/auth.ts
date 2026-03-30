@@ -2,9 +2,15 @@ import { randomUUID } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { join } from "node:path";
-import { parseAuthEnv } from "./env.js";
+import { type AuthEnv, parseAuthEnv } from "./env.js";
 
-const env = parseAuthEnv();
+let env: AuthEnv;
+try {
+  env = parseAuthEnv();
+} catch (e) {
+  console.error(e instanceof Error ? e.message : String(e));
+  process.exit(1);
+}
 const SCOPES =
   "user-read-playback-state user-modify-playback-state user-read-currently-playing user-read-recently-played playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private user-read-private user-read-email user-top-read user-follow-read";
 const AUTH_TIMEOUT_MS = 300_000;
@@ -77,7 +83,9 @@ const server = createServer(async (req, res) => {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error("Token exchange failed:", errorText);
+      console.error(
+        `Token exchange failed (${tokenResponse.status} ${tokenResponse.statusText})`,
+      );
       throw new Error(`Token exchange failed (${tokenResponse.status})`);
     }
 
@@ -94,8 +102,8 @@ const server = createServer(async (req, res) => {
     let envContent = "";
     try {
       envContent = readFileSync(envPath, "utf-8");
-    } catch {
-      // .env doesn't exist yet
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
     }
 
     if (envContent.includes("SPOTIFY_REFRESH_TOKEN=")) {

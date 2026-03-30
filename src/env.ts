@@ -6,7 +6,11 @@ const baseSpotifySchema = z.object({
   SPOTIFY_REDIRECT_URI: z
     .string()
     .url()
-    .default("http://127.0.0.1:8888/callback"),
+    .default("http://127.0.0.1:8888/callback")
+    .refine((url) => {
+      const { hostname } = new URL(url);
+      return hostname === "127.0.0.1" || hostname === "localhost";
+    }, "Redirect URI must point to localhost"),
 });
 
 const serverEnvSchema = baseSpotifySchema.extend({
@@ -18,6 +22,7 @@ const serverEnvSchema = baseSpotifySchema.extend({
     ])
     .default("stdio"),
   SPOTIFY_REFRESH_TOKEN: z.string().min(1),
+  MCP_HTTP_SECRET: z.string().min(1).optional(),
 });
 
 const authEnvSchema = baseSpotifySchema;
@@ -28,11 +33,12 @@ export type AuthEnv = z.infer<typeof authEnvSchema>;
 export function parseServerEnv(): ServerEnv {
   const result = serverEnvSchema.safeParse(process.env);
   if (!result.success) {
-    console.error("Missing or invalid environment variables:");
-    for (const issue of result.error.issues) {
-      console.error(`  ${issue.path.join(".")}: ${issue.message}`);
-    }
-    process.exit(1);
+    const messages = result.error.issues.map(
+      (issue) => `  ${issue.path.join(".")}: ${issue.message}`,
+    );
+    throw new Error(
+      `Missing or invalid environment variables:\n${messages.join("\n")}`,
+    );
   }
   return Object.freeze(result.data);
 }
@@ -40,8 +46,7 @@ export function parseServerEnv(): ServerEnv {
 export function parseAuthEnv(): AuthEnv {
   const result = authEnvSchema.safeParse(process.env);
   if (!result.success) {
-    console.error("Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET first.");
-    process.exit(1);
+    throw new Error("Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET first.");
   }
   return Object.freeze(result.data);
 }
