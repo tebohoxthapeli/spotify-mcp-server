@@ -21,6 +21,8 @@ type ResponseCache = Readonly<{
 
 let tokenCache: TokenCache | null = null;
 let refreshPromise: Promise<string> | null = null;
+let refreshFailedUntil = 0;
+const REFRESH_CIRCUIT_BREAK_MS = 30_000;
 const responseCache = new Map<string, ResponseCache>();
 
 async function getAccessToken(env: ServerEnv): Promise<string> {
@@ -28,13 +30,22 @@ async function getAccessToken(env: ServerEnv): Promise<string> {
     return tokenCache.accessToken;
   }
 
+  if (Date.now() < refreshFailedUntil) {
+    throw new Error("Spotify auth recently failed. Try again shortly.");
+  }
+
   if (refreshPromise) {
     return refreshPromise;
   }
 
-  refreshPromise = doRefresh(env).finally(() => {
-    refreshPromise = null;
-  });
+  refreshPromise = doRefresh(env)
+    .catch((err) => {
+      refreshFailedUntil = Date.now() + REFRESH_CIRCUIT_BREAK_MS;
+      throw err;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
 
   return refreshPromise;
 }
@@ -87,17 +98,25 @@ async function fetchWithRetry(
   url: string,
   options: RequestInit,
 ): Promise<Response> {
+  const MAX_RETRIES = 2;
   let response = await fetch(url, {
     ...options,
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
-  if (response.status === 429 || response.status >= 500) {
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (response.status !== 429 && response.status < 500) {
+      break;
+    }
+
     const retryAfterHeader = response.headers.get("Retry-After");
-    const waitMs =
-      response.status === 429 && retryAfterHeader
-        ? Math.min(Number(retryAfterHeader) * 1000, MAX_RETRY_WAIT_MS)
-        : 1_000;
+    const seconds = parseInt(retryAfterHeader ?? "", 10);
+    const baseMs =
+      response.status === 429 && Number.isFinite(seconds)
+        ? Math.min(seconds * 1000, MAX_RETRY_WAIT_MS)
+        : 1_000 * (attempt + 1);
+    const jitter = Math.floor(Math.random() * 500);
+    const waitMs = baseMs + jitter;
 
     await new Promise((resolve) => setTimeout(resolve, waitMs));
     response = await fetch(url, {
@@ -157,6 +176,9 @@ function getCachedResponse<T>(cacheKey: string): T | undefined {
   if (!cached) return undefined;
 
   if (Date.now() < cached.expiresAt) {
+    // Promote to end of Map for LRU approximation
+    responseCache.delete(cacheKey);
+    responseCache.set(cacheKey, cached);
     return cached.data as T;
   }
 
@@ -178,6 +200,32 @@ function cacheResponse(cacheKey: string, data: unknown): void {
   });
 }
 
+function invalidateRelatedCache(endpoint: string): void {
+  const prefixes: readonly string[] = endpoint.startsWith("/me/player")
+    ? [
+        "/me/player",
+      ]
+    : endpoint.startsWith("/playlists") || endpoint.startsWith("/me/playlists")
+      ? [
+          "/playlists",
+          "/me/playlists",
+        ]
+      : [];
+
+  if (prefixes.length === 0) {
+    responseCache.clear();
+    return;
+  }
+
+  for (const key of [
+    ...responseCache.keys(),
+  ]) {
+    if (prefixes.some((p) => key.startsWith(p))) {
+      responseCache.delete(key);
+    }
+  }
+}
+
 export async function spotifyRequest<T>(
   env: ServerEnv,
   endpoint: string,
@@ -194,7 +242,7 @@ export async function spotifyRequest<T>(
   const cacheKey = `${endpoint}${queryString}`;
 
   if (method !== "GET") {
-    responseCache.clear();
+    invalidateRelatedCache(endpoint);
   }
 
   if (method === "GET") {
