@@ -353,6 +353,67 @@ async function getPlayerState(env: ServerEnv): Promise<void> {
   }
 }
 
+async function getPlaylists(env: ServerEnv): Promise<void> {
+  const data = await spotifyRequest<{
+    items: Array<{
+      id: string;
+      name: string;
+      uri: string;
+      owner: {
+        display_name: string | null;
+      };
+      tracks?: {
+        total: number;
+      };
+    }>;
+    next: string | null;
+    total: number;
+  } | null>(env, "/me/playlists", "GET", undefined, {
+    limit: "50",
+  });
+
+  if (!data?.items?.length) {
+    console.log("No playlists found.");
+    return;
+  }
+
+  console.log("\nYour Playlists:\n");
+  for (const playlist of data.items) {
+    const owner = playlist.owner?.display_name ?? "Unknown";
+    const trackCount = playlist.tracks?.total ?? "N/A";
+    console.log(`  ${playlist.name}`);
+    console.log(`    Tracks: ${trackCount}`);
+    console.log(`    Owner: ${owner}`);
+    console.log(`    URI: ${playlist.uri}`);
+    console.log();
+  }
+
+  if (data.next) {
+    console.log(`(Showing ${data.items.length} of ${data.total} playlists)`);
+  }
+}
+
+async function addToPlaylist(
+  env: ServerEnv,
+  playlistUri: string,
+  trackUri: string,
+): Promise<void> {
+  // Extract playlist ID from URI (spotify:playlist:xxx)
+  const playlistId = playlistUri.split(":")[2];
+  if (!playlistId) {
+    throw new Error(
+      "Invalid playlist URI format. Expected spotify:playlist:xxx",
+    );
+  }
+
+  await spotifyRequest(env, `/playlists/${playlistId}/items`, "POST", {
+    uris: [
+      trackUri,
+    ],
+  });
+  console.log(`Added track to playlist: ${playlistUri}`);
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
@@ -361,21 +422,22 @@ async function main(): Promise<void> {
 Spotify CLI for OpenCode
 
 Commands:
-  search <query>       Search for tracks
-  queue <uri>          Add track to queue (e.g., spotify:track:xxx)
-  queue-list           Show current queue
-  current              Show currently playing track
-  devices              List available devices
-  transfer <device_id> Transfer playback to a device
-  state                Show full player state
+  search <query>          Search for tracks
+  queue <uri>             Add track to queue (e.g., spotify:track:xxx)
+  queue-list              Show current queue
+  current                 Show currently playing track
+  devices                 List available devices
+  transfer <device_id>    Transfer playback to a device
+  state                   Show full player state
+  playlists               List your playlists
+  add-to-playlist <playlist_uri> <track_uri>  Add track to playlist
 
 Examples:
   bun run src/cli.ts search "Bad Girl" "Solange"
   bun run src/cli.ts queue spotify:track:4iV5W9uYEdYUVa79Axb7Rh
   bun run src/cli.ts queue-list
-  bun run src/cli.ts current
-  bun run src/cli.ts devices
-  bun run src/cli.ts transfer <device_id>
+  bun run src/cli.ts playlists
+  bun run src/cli.ts add-to-playlist spotify:playlist:xxx spotify:track:xxx
 `);
     process.exit(0);
   }
@@ -426,6 +488,22 @@ Examples:
       }
       case "queue-list": {
         await getQueue(env);
+        break;
+      }
+      case "playlists": {
+        await getPlaylists(env);
+        break;
+      }
+      case "add-to-playlist": {
+        const playlistUri = args[1];
+        const trackUri = args[2];
+        if (!playlistUri || !trackUri) {
+          console.error(
+            "Usage: cli.ts add-to-playlist <playlist_uri> <track_uri>",
+          );
+          process.exit(1);
+        }
+        await addToPlaylist(env, playlistUri, trackUri);
         break;
       }
       default:
