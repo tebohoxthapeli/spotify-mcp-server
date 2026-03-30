@@ -1,39 +1,15 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ServerEnv } from "../env.js";
 import { getArtistTopTracksInput } from "../schemas.js";
-import { spotifyRequest, withErrorHandling } from "../spotify-client.js";
-import type { SpotifySearchResult } from "../types.js";
+import { withErrorHandling } from "../spotify-client.js";
 import {
   extractIdFromUri,
   formatDuration,
+  getArtistName,
   READ_ANNOTATIONS,
+  searchTracksByArtist,
   textResult,
 } from "../utils.js";
-
-type ArtistProfile = Readonly<{
-  id: string;
-  name: string;
-}>;
-
-async function getArtistName(
-  env: ServerEnv,
-  artistId: string,
-): Promise<string | null> {
-  const data = await spotifyRequest<ArtistProfile>(env, `/artists/${artistId}`);
-  return data?.name ?? null;
-}
-
-async function searchTracksByArtist(
-  env: ServerEnv,
-  artistName: string,
-  limit: number,
-): Promise<SpotifySearchResult | null> {
-  return spotifyRequest<SpotifySearchResult>(env, "/search", "GET", undefined, {
-    limit: String(limit),
-    q: `artist:"${artistName}"`,
-    type: "track",
-  });
-}
 
 export function registerArtistTools(server: McpServer, env: ServerEnv): void {
   server.tool(

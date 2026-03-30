@@ -10,13 +10,7 @@ import {
 } from "../schemas.js";
 import { spotifyRequest, withErrorHandling } from "../spotify-client.js";
 import type { SpotifyPlaylist } from "../types.js";
-import { extractIdFromUri, textResult } from "../utils.js";
-
-const WRITE_ANNOTATIONS = {
-  destructiveHint: false,
-  idempotentHint: false,
-  readOnlyHint: false,
-} as const;
+import { extractIdFromUri, textResult, WRITE_ANNOTATIONS } from "../utils.js";
 
 export function registerPlaylistWriteTools(
   server: McpServer,

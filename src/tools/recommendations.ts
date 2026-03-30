@@ -3,16 +3,11 @@ import type { ServerEnv } from "../env.js";
 import { recommendationsInput } from "../schemas.js";
 import { spotifyRequest, withErrorHandling } from "../spotify-client.js";
 import type {
-  SpotifySearchResult,
+  SpotifyArtistProfile,
   SpotifyTrack,
   SpotifyTracksResponse,
 } from "../types.js";
-import { formatDuration, textResult } from "../utils.js";
-
-type ArtistProfile = Readonly<{
-  id: string;
-  name: string;
-}>;
+import { formatDuration, searchTracksByArtist, textResult } from "../utils.js";
 
 export function shuffleArray<T>(array: readonly T[]): T[] {
   const result = [
@@ -37,11 +32,12 @@ async function resolveArtistNames(
 
   // Resolve artist IDs to names
   if (seedArtists?.length) {
-    const nameResults = await Promise.all(
-      seedArtists.map((id) =>
-        spotifyRequest<ArtistProfile>(env, `/artists/${id}`),
-      ),
-    );
+    const batchResult = await spotifyRequest<{
+      artists: readonly SpotifyArtistProfile[];
+    }>(env, "/artists", "GET", undefined, {
+      ids: seedArtists.join(","),
+    });
+    const nameResults = batchResult?.artists ?? [];
     for (const artist of nameResults) {
       if (artist?.name) artistNames.add(artist.name);
     }
@@ -71,26 +67,6 @@ async function resolveArtistNames(
   }
 
   return artistNames;
-}
-
-async function searchTracksByArtist(
-  env: ServerEnv,
-  artistName: string,
-  limit: number,
-): Promise<readonly SpotifyTrack[]> {
-  const data = await spotifyRequest<SpotifySearchResult>(
-    env,
-    "/search",
-    "GET",
-    undefined,
-    {
-      limit: String(limit),
-      q: `artist:"${artistName}"`,
-      type: "track",
-    },
-  );
-
-  return data?.tracks?.items ?? [];
 }
 
 function collectCandidates(
@@ -169,7 +145,10 @@ export function registerRecommendationTools(
       const tracksByArtist = await Promise.all(
         [
           ...artistNames,
-        ].map((name) => searchTracksByArtist(env, name, perArtistLimit)),
+        ].map(async (name) => {
+          const result = await searchTracksByArtist(env, name, perArtistLimit);
+          return result?.tracks?.items ?? [];
+        }),
       );
 
       const candidates = collectCandidates(tracksByArtist, seedTrackIds);

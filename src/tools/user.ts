@@ -57,18 +57,6 @@ export function registerUserTools(server: McpServer, env: ServerEnv): void {
     topItemsInput,
     READ_ANNOTATIONS,
     withErrorHandling(async ({ type, time_range, limit, offset }) => {
-      const data = await spotifyRequest<
-        SpotifyTopItemsResponse<SpotifyTrack | SpotifySearchArtist>
-      >(env, `/me/top/${type}`, "GET", undefined, {
-        limit: String(limit),
-        offset: String(offset),
-        time_range,
-      });
-
-      if (!data || data.items.length === 0) {
-        return textResult(`No top ${type} found for ${time_range}.`);
-      }
-
       const rangeLabel =
         time_range === "short_term"
           ? "~4 weeks"
@@ -76,26 +64,50 @@ export function registerUserTools(server: McpServer, env: ServerEnv): void {
             ? "~6 months"
             : "~1 year";
 
-      let lines: string[];
+      const queryParams = {
+        limit: String(limit),
+        offset: String(offset),
+        time_range,
+      };
 
       if (type === "tracks") {
-        lines = (data.items as readonly SpotifyTrack[]).map(
+        const data = await spotifyRequest<
+          SpotifyTopItemsResponse<SpotifyTrack>
+        >(env, "/me/top/tracks", "GET", undefined, queryParams);
+
+        if (!data || data.items.length === 0) {
+          return textResult(`No top tracks found for ${time_range}.`);
+        }
+
+        const lines = data.items.map(
           (t, i) =>
             `  ${i + 1 + offset}. ${t.name} — ${t.artists.map((a) => a.name).join(", ")} [${formatDuration(t.duration_ms)}] (${t.uri})`,
         );
-      } else {
-        lines = (data.items as readonly SpotifySearchArtist[]).map(
-          (a, i) =>
-            `  ${i + 1 + offset}. ${a.name}${(a.genres ?? []).length > 0 ? ` [${(a.genres ?? []).slice(0, 3).join(", ")}]` : ""} (${a.uri})`,
-        );
+
+        let text = `Top tracks (${rangeLabel}, ${data.total} total):\n${lines.join("\n")}`;
+        if (data.next) {
+          text += `\n\nMore available — use offset=${offset + limit}`;
+        }
+        return textResult(text);
       }
 
-      let text = `Top ${type} (${rangeLabel}, ${data.total} total):\n${lines.join("\n")}`;
+      const data = await spotifyRequest<
+        SpotifyTopItemsResponse<SpotifySearchArtist>
+      >(env, "/me/top/artists", "GET", undefined, queryParams);
 
+      if (!data || data.items.length === 0) {
+        return textResult(`No top artists found for ${time_range}.`);
+      }
+
+      const lines = data.items.map(
+        (a, i) =>
+          `  ${i + 1 + offset}. ${a.name}${(a.genres ?? []).length > 0 ? ` [${(a.genres ?? []).slice(0, 3).join(", ")}]` : ""} (${a.uri})`,
+      );
+
+      let text = `Top artists (${rangeLabel}, ${data.total} total):\n${lines.join("\n")}`;
       if (data.next) {
         text += `\n\nMore available — use offset=${offset + limit}`;
       }
-
       return textResult(text);
     }),
   );

@@ -1,4 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { ServerEnv } from "./env.js";
+import { spotifyRequest } from "./spotify-client.js";
+import type { SpotifyArtistProfile, SpotifySearchResult } from "./types.js";
 
 export function textResult(text: string): CallToolResult {
   return {
@@ -54,3 +57,32 @@ export function formatDuration(ms: number): string {
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
+
+export async function searchTracksByArtist(
+  env: ServerEnv,
+  artistName: string,
+  limit: number,
+): Promise<SpotifySearchResult | null> {
+  return spotifyRequest<SpotifySearchResult>(env, "/search", "GET", undefined, {
+    limit: String(limit),
+    q: `artist:"${artistName}"`,
+    type: "track",
+  });
+}
+
+export async function getArtistName(
+  env: ServerEnv,
+  artistId: string,
+): Promise<string | null> {
+  const data = await spotifyRequest<SpotifyArtistProfile>(
+    env,
+    `/artists/${artistId}`,
+  );
+  return data?.name ?? null;
+}
+
+export const WRITE_ANNOTATIONS = {
+  destructiveHint: false,
+  idempotentHint: false,
+  readOnlyHint: false,
+} as const;

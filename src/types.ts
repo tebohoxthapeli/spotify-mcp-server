@@ -151,17 +151,6 @@ export type SpotifyTracksResponse = Readonly<{
   tracks: readonly (SpotifyTrack | null)[];
 }>;
 
-export type SpotifySimplifiedTrack = Readonly<{
-  artists: readonly SpotifyArtist[];
-  duration_ms: number;
-  external_urls: Readonly<{
-    spotify: string;
-  }>;
-  id: string;
-  name: string;
-  uri: string;
-}>;
-
 export type SpotifyUserProfile = Readonly<{
   display_name: string | null;
   email?: string;
@@ -196,4 +185,9 @@ export type SpotifyFollowedArtistsResponse = Readonly<{
     next: string | null;
     total: number;
   }>;
+}>;
+
+export type SpotifyArtistProfile = Readonly<{
+  id: string;
+  name: string;
 }>;

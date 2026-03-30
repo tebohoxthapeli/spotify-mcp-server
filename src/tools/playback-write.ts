@@ -9,18 +9,19 @@ import {
 } from "../schemas.js";
 import { spotifyRequest, withErrorHandling } from "../spotify-client.js";
 import type { SpotifyPlayerState, SpotifyTrack } from "../types.js";
-import { extractIdFromUri, formatDuration, textResult } from "../utils.js";
+import {
+  extractIdFromUri,
+  formatDuration,
+  textResult,
+  WRITE_ANNOTATIONS,
+} from "../utils.js";
 
 export function registerWriteTools(server: McpServer, env: ServerEnv): void {
   server.tool(
     "spotify_play",
     "Resume playback on Spotify",
     {},
-    {
-      destructiveHint: false,
-      idempotentHint: false,
-      readOnlyHint: false,
-    },
+    WRITE_ANNOTATIONS,
     withErrorHandling(async () => {
       await spotifyRequest(env, "/me/player/play", "PUT");
       return textResult("Playback resumed.");
@@ -31,11 +32,7 @@ export function registerWriteTools(server: McpServer, env: ServerEnv): void {
     "spotify_pause",
     "Pause playback on Spotify",
     {},
-    {
-      destructiveHint: false,
-      idempotentHint: false,
-      readOnlyHint: false,
-    },
+    WRITE_ANNOTATIONS,
     withErrorHandling(async () => {
       await spotifyRequest(env, "/me/player/pause", "PUT");
       return textResult("Playback paused.");
@@ -46,11 +43,7 @@ export function registerWriteTools(server: McpServer, env: ServerEnv): void {
     "spotify_playpause",
     "Toggle play/pause on Spotify",
     {},
-    {
-      destructiveHint: false,
-      idempotentHint: false,
-      readOnlyHint: false,
-    },
+    WRITE_ANNOTATIONS,
     withErrorHandling(async () => {
       const data = await spotifyRequest<SpotifyPlayerState>(env, "/me/player");
 
@@ -73,11 +66,7 @@ export function registerWriteTools(server: McpServer, env: ServerEnv): void {
     "spotify_next_track",
     "Skip to next track on Spotify",
     {},
-    {
-      destructiveHint: false,
-      idempotentHint: false,
-      readOnlyHint: false,
-    },
+    WRITE_ANNOTATIONS,
     withErrorHandling(async () => {
       await spotifyRequest(env, "/me/player/next", "POST");
       return textResult("Skipped to next track.");
@@ -88,11 +77,7 @@ export function registerWriteTools(server: McpServer, env: ServerEnv): void {
     "spotify_previous_track",
     "Skip to previous track on Spotify",
     {},
-    {
-      destructiveHint: false,
-      idempotentHint: false,
-      readOnlyHint: false,
-    },
+    WRITE_ANNOTATIONS,
     withErrorHandling(async () => {
       await spotifyRequest(env, "/me/player/previous", "POST");
       return textResult("Skipped to previous track.");
@@ -103,11 +88,7 @@ export function registerWriteTools(server: McpServer, env: ServerEnv): void {
     "spotify_play_track",
     "Play a specific track on Spotify by URI",
     playTrackInput,
-    {
-      destructiveHint: false,
-      idempotentHint: false,
-      readOnlyHint: false,
-    },
+    WRITE_ANNOTATIONS,
     withErrorHandling(async ({ uri, context }) => {
       const body: Record<string, unknown> = context
         ? {

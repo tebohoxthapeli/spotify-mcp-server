@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ServerEnv } from "../env.js";
 import { spotifyRequest, withErrorHandling } from "../spotify-client.js";
 import type { SpotifyCurrentlyPlaying, SpotifyPlayerState } from "../types.js";
-import { READ_ANNOTATIONS, textResult } from "../utils.js";
+import { formatDuration, READ_ANNOTATIONS, textResult } from "../utils.js";
 
 export function registerReadTools(server: McpServer, env: ServerEnv): void {
   server.tool(
@@ -26,7 +26,7 @@ export function registerReadTools(server: McpServer, env: ServerEnv): void {
         `Name: ${track.name}`,
         `Artist: ${artists}`,
         `Album: ${track.album.name}`,
-        `Duration: ${Math.round(track.duration_ms / 1000)}s`,
+        `Duration: ${formatDuration(track.duration_ms)}`,
         `URI: ${track.uri}`,
         `URL: ${track.external_urls.spotify}`,
       ].join("\n");
